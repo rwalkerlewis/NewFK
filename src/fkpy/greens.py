@@ -291,12 +291,15 @@ def compute_greens(  # noqa: PLR0913, PLR0915
         model_full, src_layer, rcv_layer, distances_km
     )
     if t0_s is None:
-        t0_offset = t0_p_raw - samples_before_p * dt
+        t0_first_arrival = t0_p_raw
     elif np.isscalar(t0_s):
-        t0_offset = np.full(distances_km.shape, float(t0_s))  # type: ignore[arg-type]
+        t0_first_arrival = np.full(distances_km.shape, float(t0_s))  # type: ignore[arg-type]
     else:
-        t0_offset = np.asarray(t0_s, dtype=np.float64)  # type: ignore[arg-type]
-    t0_offset = np.maximum(t0_offset, 0.0)
+        t0_first_arrival = np.asarray(t0_s, dtype=np.float64)  # type: ignore[arg-type]
+    # Per Lupei Zhu's `fk.f`: t0_offset = t0 - tb*dt, the absolute time
+    # represented by sample 0 of the output trace.  This is also the SAC
+    # `b` header.
+    t0_offset = np.maximum(t0_first_arrival - samples_before_p * dt, 0.0)
 
     filter_const = dk_per_km / TWO_PI
 
