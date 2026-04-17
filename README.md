@@ -42,11 +42,17 @@ it (no silent fall-back to pure-Python).
 from fkpy import LayeredModel, compute_greens
 
 model = LayeredModel.from_text("examples/zhu5.model")
-gf = compute_greens(model, src_depth_km=8.0,
-                    distances_km=[50, 100, 150],
-                    npts=2048, dt=0.1)
+gf = compute_greens(
+    model,
+    src_depth_km=8.0,
+    distances_km=[50, 100, 150],
+    npts=2048,
+    dt=0.1,
+)
 gf.to_obspy_stream(azimuth_deg=42.0).write("synth.mseed", format="MSEED")
 ```
+
+A more complete script lives in [`examples/quickstart.py`](examples/quickstart.py).
 
 ## CLI
 
