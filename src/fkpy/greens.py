@@ -15,6 +15,7 @@ from ._logging import logger
 from ._typing import F64Array
 from .constants import (
     DK_DEFAULT,
+    H_SOURCE_RECEIVER_FLOOR_KM,
     KMAX_DEFAULT,
     PMAX_DEFAULT,
     PMIN_DEFAULT,
@@ -305,7 +306,7 @@ def compute_greens(  # noqa: PLR0913, PLR0915
     qs = model_full.qs.astype(np.float64)
 
     # --- Wavenumber-integration grid.
-    hs = max(_vertical_separation(model_full, src_layer, rcv_layer), 1e-3)
+    hs = max(_vertical_separation(model_full, src_layer, rcv_layer), H_SOURCE_RECEIVER_FLOOR_KM)
     xmax = max(float(np.max(distances_km)), hs)
     dk_per_km = dk * np.pi / xmax
     kc_per_km = kmax / hs
@@ -533,7 +534,7 @@ def compute_single_force_greens(  # noqa: PLR0913
     qp = model_full.qp.astype(np.float64)
     qs = model_full.qs.astype(np.float64)
 
-    hs = max(_vertical_separation(model_full, src_layer, rcv_layer), 1e-3)
+    hs = max(_vertical_separation(model_full, src_layer, rcv_layer), H_SOURCE_RECEIVER_FLOOR_KM)
     xmax = max(float(np.max(distances_km)), hs)
     dk_per_km = dk * np.pi / xmax
     kc_per_km = kmax / hs

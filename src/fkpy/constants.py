@@ -75,6 +75,17 @@ EPSILON_VS_KMS: float = 1.0e-6
 """Floor for v_s.  A pure liquid layer (e.g. ocean) is set to this so the
 SH Haskell entries do not divide by zero; standard `fk` workaround."""
 
+H_SOURCE_RECEIVER_FLOOR_KM: float = 1.0e-3
+"""Lower bound (km) on the source-receiver vertical separation ``h_s``.
+
+When the source and receiver are in the same layer ``h_s`` is zero;
+the wavenumber grid quantities ``dk = dk_in · π / max(x_max, h_s)``
+and ``k_max = kmax_in / h_s`` would then be ill-defined.  We clamp
+``h_s`` to 1 m (1e-3 km), which gives a conservative ``k_max`` and
+keeps the integration grid finite.  Lupei Zhu's `fk.f` uses the same
+floor implicitly by requiring src/rcv to lie on different layer
+interfaces."""
+
 # ----------------------------------------------------------------------
 # Mathematical convenience
 # ----------------------------------------------------------------------
@@ -84,6 +95,7 @@ __all__ = [
     "DK_DEFAULT",
     "EPSILON_THICKNESS_KM",
     "EPSILON_VS_KMS",
+    "H_SOURCE_RECEIVER_FLOOR_KM",
     "KMAX_DEFAULT",
     "PMAX_DEFAULT",
     "PMIN_DEFAULT",

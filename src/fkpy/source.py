@@ -119,6 +119,12 @@ class ZhuBasis(IntEnum):
 
 
 N_GREEN_COMPONENTS: int = 10
+"""Number of Green's-function components per receiver distance.
+
+8 double-couple components (n=0,1,2 × Z,R,T minus the trivially-zero
+n=0 transverse) + 2 explosion components (Z, R; explosion transverse
+is identically zero).  Matches the consumption order of Lupei Zhu's
+``fk2mtg`` (radiats.c)."""
 
 
 # ----------------------------------------------------------------------
