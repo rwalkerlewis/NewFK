@@ -268,6 +268,25 @@ def compute_greens(  # noqa: PLR0913, PLR0915
     pmin_per_kms = pmin / vs_src
     pmax_per_kms = pmax / vs_src
 
+    # --- Bouchon (1981) condition (2): dk · x_max ≤ π · 0.5
+    # gives 4 samples per Bessel period at distance x_max.  Lupei Zhu's
+    # `fk.f` checks the related condition
+    #     dk_norm ≤ 0.5 / (1 + sqrt((v_max·t_max)² − h_s²) / x_max)
+    # which guarantees no wrap-around for a trace of duration t_max.
+    vmax = float(np.max(model_full.vp_kms))
+    t_max = npts * dt
+    inner = (vmax * t_max) ** 2 - hs**2
+    if inner > 0:
+        dk_max = 0.5 / (1.0 + np.sqrt(inner) / xmax)
+        if dk > dk_max:
+            logger.warning(
+                "dk=%.4f exceeds Bouchon (1981) condition (2) limit %.4f "
+                "for v_max=%.2f km/s, t_max=%.1f s, x_max=%.1f km. "
+                "Time-domain wrap-around may contaminate the trace; "
+                "reduce dk or shorten npts.",
+                dk, dk_max, vmax, t_max, xmax,
+            )
+
     # --- Frequency grid (positive frequencies only; rfft layout).
     nfft2 = npts // 2
     dw = TWO_PI / (npts * dt)
