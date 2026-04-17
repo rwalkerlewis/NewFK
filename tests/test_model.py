@@ -89,3 +89,23 @@ class TestLayeredModel:
         arr = two_layer_model.to_array()
         m2 = LayeredModel.from_array(arr)
         np.testing.assert_array_equal(m2.to_array(), arr)
+
+    def test_from_text_pyfk_format(self, tmp_path) -> None:
+        # pyfk/fk convention: thickness vs vp rho Qs Qp
+        p = tmp_path / "pyfk.nd"
+        p.write_text(
+            "10  3.5 6.3 2.786 500 1000\n"
+            "0   4.7 8.1 3.362 800 1600\n"
+        )
+        m = LayeredModel.from_text(p, format="pyfk")
+        # Expected fkpy: thickness vp vs rho Qp Qs
+        np.testing.assert_allclose(m.vp_kms, [6.3, 8.1])
+        np.testing.assert_allclose(m.vs_kms, [3.5, 4.7])
+        np.testing.assert_allclose(m.qp, [1000, 1600])
+        np.testing.assert_allclose(m.qs, [500, 800])
+
+    def test_from_text_unknown_format(self, tmp_path) -> None:
+        p = tmp_path / "x.nd"
+        p.write_text("0 5 3 2.7 500 1000\n")
+        with pytest.raises(ValueError):
+            LayeredModel.from_text(p, format="bogus")

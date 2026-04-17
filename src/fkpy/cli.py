@@ -34,6 +34,10 @@ def main(verbose: int) -> None:
 @main.command("compute", help="Compute Green's functions and save to HDF5 (and optionally SAC).")
 @click.option("--model", "model_path", required=True, type=click.Path(path_type=Path),
               help="Layered model text file.")
+@click.option("--model-format", "model_format", default="fkpy",
+              type=click.Choice(["fkpy", "pyfk"]),
+              help="Column ordering for --model.  'fkpy' (default): "
+                   "thickness vp vs rho Qp Qs; 'pyfk': thickness vs vp rho Qs Qp.")
 @click.option("--depth", "src_depth_km", required=True, type=float, help="Source depth in km.")
 @click.option("--rdep", "rcv_depth_km", default=0.0, type=float, help="Receiver depth in km.")
 @click.option("--distances", "distances", required=True, type=str,
@@ -56,6 +60,7 @@ def main(verbose: int) -> None:
               help="Receiver azimuth in degrees (for SAC headers).")
 def compute(  # noqa: PLR0913
     model_path: Path,
+    model_format: str,
     src_depth_km: float,
     rcv_depth_km: float,
     distances: str,
@@ -71,7 +76,7 @@ def compute(  # noqa: PLR0913
     azimuth: float,
 ) -> None:
     distances_km = np.array([float(x) for x in distances.split(",") if x.strip()], dtype=np.float64)
-    model = LayeredModel.from_text(model_path)
+    model = LayeredModel.from_text(model_path, format=model_format)
     logger.info(
         "Computing GFs for %d distances, npts=%d, dt=%g, src_depth=%g km",
         distances_km.size,
