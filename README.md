@@ -96,7 +96,10 @@ cloud VM (Linux 6.1):
 Reproduce on your machine:
 
 ```bash
-python -m fkpy.benchmarks.canonical_zhu5 --workers 1
+fkpy bench --workers 1
+fkpy bench --workers 4
+
+# or via the module entry point:
 python -m fkpy.benchmarks.canonical_zhu5 --workers 4
 ```
 

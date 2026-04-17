@@ -129,5 +129,15 @@ def compute(  # noqa: PLR0913
         logger.info("Wrote %d SAC files", len(files))
 
 
+@main.command("bench", help="Run the canonical 5-layer benchmark and report wall time.")
+@click.option("--workers", "n_workers", default=1, type=int,
+              help="Worker processes for the omega-loop (default 1 = serial).")
+def bench(n_workers: int) -> None:
+    from .benchmarks.canonical_zhu5 import run
+
+    elapsed = run(workers=n_workers)
+    click.echo(f"{elapsed:.2f} s with {n_workers} worker(s)")
+
+
 if __name__ == "__main__":  # pragma: no cover
     main()

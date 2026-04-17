@@ -54,6 +54,15 @@ def test_cli_compute_writes_hdf5(tmp_path: Path) -> None:
 
 
 @pytest.mark.fast
+def test_cli_bench_runs() -> None:
+    """The `fkpy bench` subcommand runs the canonical benchmark."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["bench", "--workers", "1"])
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    assert "s with" in result.output
+
+
+@pytest.mark.fast
 def test_cli_compute_with_pyfk_format(tmp_path: Path) -> None:
     model_path = tmp_path / "model.nd"
     model_path.write_text(
