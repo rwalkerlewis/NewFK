@@ -26,7 +26,7 @@ import numpy as np
 from ._logging import logger
 from ._typing import C128Array, F64Array
 from .attenuation import complex_wavenumber_squared
-from .integrate import precompute_bessel, wavenumber_sum_loop
+from .integrate import precompute_bessel, wavenumber_sum_loop_tabulated
 
 
 @dataclass(frozen=True)
@@ -64,6 +64,8 @@ class FrequencyJobConfig:
 def _process_chunk(
     cfg: FrequencyJobConfig,
     j_indices: list[int],
+    bessel_global: np.ndarray,
+    k0_index_offset: int,
 ) -> tuple[list[int], C128Array]:
     """Compute the wavenumber sum for each frequency index in the chunk."""
     n_dist = cfg.distances_km.size
@@ -76,18 +78,28 @@ def _process_chunk(
         kp_sq = complex_wavenumber_squared(w, cfg.vp_kms, cfg.qp)
         ks_sq = complex_wavenumber_squared(w, cfg.vs_kms, cfg.qs)
         # Wavenumber range for this ω (ZR fk.f convention)
-        k0 = omega * cfg.pmin_per_kms + 0.5 * cfg.dk_per_km
-        n_k = int(
-            (np.sqrt(cfg.kc_per_km**2 + (cfg.pmax_per_kms * omega) ** 2) - k0)
+        # When pmin=0, k0 is identical for every ω, so we can index
+        # straight into the precomputed global Bessel table.  When
+        # pmin>0, the k_array per ω starts at (omega*pmin + dk/2).
+        k0_extra = omega * cfg.pmin_per_kms  # offset *above* the 0.5*dk start
+        i_start = int(round(k0_extra / cfg.dk_per_km)) + k0_index_offset
+        n_k_max = int(
+            (np.sqrt(cfg.kc_per_km**2 + (cfg.pmax_per_kms * omega) ** 2)
+             - (k0_extra + 0.5 * cfg.dk_per_km))
             / cfg.dk_per_km
         )
+        n_k = max(0, min(n_k_max, bessel_global.shape[0] - i_start))
         if n_k <= 0:
             continue
-        k_array = k0 + np.arange(n_k, dtype=np.float64) * cfg.dk_per_km
-        bessel = precompute_bessel(k_array, cfg.distances_km)
-        partial = wavenumber_sum_loop(
+        k_slice = bessel_global[i_start : i_start + n_k]
+        # Compose actual k_array for the kernel (keep exact arithmetic)
+        k_array = (
+            (k0_extra + 0.5 * cfg.dk_per_km)
+            + np.arange(n_k, dtype=np.float64) * cfg.dk_per_km
+        )
+        partial = wavenumber_sum_loop_tabulated(
             k_array,
-            bessel,
+            k_slice,
             cfg.distances_km,
             kp_sq,
             ks_sq,
@@ -134,12 +146,21 @@ def run_omega_loop(
     if not j_indices:
         return out
 
+    # --- Precompute the global Bessel table once.
+    omega_max = nfft2 * cfg.dw_rad_s
+    k_max_global = (
+        np.sqrt(cfg.kc_per_km**2 + (cfg.pmax_per_kms * omega_max) ** 2)
+    )
+    n_k_global = int(np.ceil((k_max_global - 0.5 * cfg.dk_per_km) / cfg.dk_per_km)) + 4
+    k_global = (0.5 * cfg.dk_per_km) + np.arange(n_k_global, dtype=np.float64) * cfg.dk_per_km
+    bessel_global = precompute_bessel(k_global, cfg.distances_km)
+
     if n_workers is None:
         n_workers = os.cpu_count() or 1
 
     if n_workers <= 1 or len(j_indices) < 4:
         logger.debug("Serial ω-loop, %d frequencies", len(j_indices))
-        idx, partial = _process_chunk(cfg, j_indices)
+        idx, partial = _process_chunk(cfg, j_indices, bessel_global, 0)
         for ii, j in enumerate(idx):
             out[:, :, j] = partial[ii]
         return out
@@ -153,7 +174,7 @@ def run_omega_loop(
         len(chunks),
     )
     with ProcessPoolExecutor(max_workers=n_workers) as ex:
-        futures = [ex.submit(_process_chunk, cfg, c) for c in chunks]
+        futures = [ex.submit(_process_chunk, cfg, c, bessel_global, 0) for c in chunks]
         for f in as_completed(futures):
             idx, partial = f.result()
             for ii, j in enumerate(idx):
