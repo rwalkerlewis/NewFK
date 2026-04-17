@@ -67,6 +67,16 @@ def to_obspy_stream(
                     "stel": float(-result.rcv_depth_km),
                     "t1": float(result.t0_p[irec]),
                     "t2": float(result.t0_s[irec]),
+                    "user1": (
+                        float(result.p_takeoff_deg[irec])
+                        if result.p_takeoff_deg.size > irec
+                        else 0.0
+                    ),
+                    "user2": (
+                        float(result.s_takeoff_deg[irec])
+                        if result.s_takeoff_deg.size > irec
+                        else 0.0
+                    ),
                 },
             }
             tr = Trace(data=data)

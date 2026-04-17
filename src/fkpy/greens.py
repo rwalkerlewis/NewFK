@@ -66,6 +66,8 @@ class GreensResult:
     npts: int
     src_depth_km: float
     rcv_depth_km: float
+    p_takeoff_deg: F64Array = field(default_factory=lambda: np.zeros(0))
+    s_takeoff_deg: F64Array = field(default_factory=lambda: np.zeros(0))
     meta: dict[str, Any] = field(default_factory=dict)
 
     # ------------------------------------------------------------------
@@ -89,14 +91,17 @@ def _approximate_first_arrivals(
     src_layer: int,
     rcv_layer: int,
     distances_km: F64Array,
-) -> tuple[F64Array, F64Array]:
-    """Return ``(t0_p, t0_s)`` per distance via 1-D ray tracing.
+) -> tuple[F64Array, F64Array, F64Array, F64Array]:
+    """Return ``(t0_p, t0_s, takeoff_p_deg, takeoff_s_deg)`` per distance
+    via 1-D ray tracing.
 
-    Uses :func:`fkpy.taup.first_arrival_time` (a simplified port of
-    Lupei Zhu's ``tau_p.f``) that picks the minimum of the direct ray
-    and the head-wave refractions along every deeper interface.
+    Uses :func:`fkpy.taup.first_arrival_time` and
+    :func:`fkpy.taup.first_arrival_takeoff_deg` (simplified ports of
+    Lupei Zhu's ``tau_p.f``) that pick the minimum of the direct ray
+    and the head-wave refraction along the immediate sub-source
+    interface.
     """
-    from .taup import first_arrival_time
+    from .taup import first_arrival_takeoff_deg, first_arrival_time
 
     t0p = first_arrival_time(
         model.vp_kms, model.thickness_km, src_layer, rcv_layer, distances_km
@@ -104,7 +109,13 @@ def _approximate_first_arrivals(
     t0s = first_arrival_time(
         model.vs_kms, model.thickness_km, src_layer, rcv_layer, distances_km
     )
-    return t0p, t0s
+    take_p = first_arrival_takeoff_deg(
+        model.vp_kms, model.thickness_km, src_layer, rcv_layer, distances_km
+    )
+    take_s = first_arrival_takeoff_deg(
+        model.vs_kms, model.thickness_km, src_layer, rcv_layer, distances_km
+    )
+    return t0p, t0s, take_p, take_s
 
 
 def _vertical_separation(
@@ -303,7 +314,7 @@ def compute_greens(  # noqa: PLR0913, PLR0915
         wc1 = wc2
 
     # --- First-arrival approximations (used only as time alignment).
-    t0_p_raw, t0_s_raw = _approximate_first_arrivals(
+    t0_p_raw, t0_s_raw, take_p, take_s = _approximate_first_arrivals(
         model_full, src_layer, rcv_layer, distances_km
     )
     if t0_s is None:
@@ -439,6 +450,8 @@ def compute_greens(  # noqa: PLR0913, PLR0915
         npts=npts,
         src_depth_km=src_depth_km,
         rcv_depth_km=rcv_depth_km,
+        p_takeoff_deg=take_p,
+        s_takeoff_deg=take_s,
         meta=meta,
     )
 
@@ -508,7 +521,9 @@ def compute_single_force_greens(  # noqa: PLR0913
     if wc1 > wc2:
         wc1 = wc2
 
-    t0_p_raw, _ = _approximate_first_arrivals(model_full, src_layer, rcv_layer, distances_km)
+    t0_p_raw, _, _, _ = _approximate_first_arrivals(
+        model_full, src_layer, rcv_layer, distances_km
+    )
     if t0_s is None:
         t0_first_arrival = t0_p_raw
     elif np.isscalar(t0_s):

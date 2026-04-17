@@ -161,4 +161,72 @@ def _bisect_distance(
     return 0.5 * (lo + hi)
 
 
-__all__ = ["first_arrival_time"]
+def first_arrival_takeoff_deg(
+    velocity_kms: F64Array,
+    thickness_km: F64Array,
+    src_layer: int,
+    rcv_layer: int,
+    distances_km: F64Array,
+) -> F64Array:
+    """Return the take-off angle (in degrees from vertical, downward
+    positive) of the first arrival at each receiver distance.
+
+    For a head wave the take-off angle is the critical angle ``arcsin(v_src
+    / v_below)``; for a direct ray it is ``arcsin(p · v_src)`` where ``p``
+    is the slowness of the direct ray.  Negative angles are used to
+    indicate up-going rays (when receiver is below source).
+    """
+    if rcv_layer > src_layer:
+        rcv_layer, src_layer = src_layer, rcv_layer
+    v_above = velocity_kms[rcv_layer:src_layer]
+    d_above = thickness_km[rcv_layer:src_layer]
+    v_src = float(velocity_kms[src_layer])
+    if v_above.size == 0:
+        return np.full(distances_km.shape, 90.0, dtype=np.float64)
+    v_below = velocity_kms[src_layer:]
+
+    out = np.empty_like(distances_km)
+    for i, x in enumerate(distances_km):
+        out[i] = _takeoff_single(x, v_above, d_above, v_below, v_src)
+    return out
+
+
+def _takeoff_single(
+    x: float,
+    v_above: F64Array,
+    d_above: F64Array,
+    v_below: F64Array,
+    v_src: float,
+) -> float:
+    p_max_direct = 1.0 / float(np.max(v_above)) - 1e-12
+    p_direct = _bisect_distance(p_max_direct, x, v_above, d_above)
+    t_direct = (
+        p_direct * x
+        + np.sum(np.sqrt(np.maximum(1.0 / v_above**2 - p_direct**2, 0.0)) * d_above)
+    )
+    best_t = t_direct
+    best_p = p_direct
+    for j in range(min(v_below.size, 1)):
+        v_below_j = float(v_below[j])
+        if v_below_j <= np.max(v_above) + 1e-12:
+            continue
+        p_crit = 1.0 / v_below_j - 1e-12
+        leg_dx = float(
+            np.sum(d_above * p_crit / np.sqrt(np.maximum(1.0 / v_above**2 - p_crit**2, 0.0)))
+        )
+        if leg_dx > x:
+            continue
+        tau_leg = float(
+            np.sum(np.sqrt(np.maximum(1.0 / v_above**2 - p_crit**2, 0.0)) * d_above)
+        )
+        t_head = (p_crit * leg_dx + tau_leg) + (x - leg_dx) / v_below_j
+        if t_head < best_t:
+            best_t = t_head
+            best_p = p_crit
+    sin_take = best_p * v_src
+    if sin_take >= 1.0:
+        sin_take = 1.0 - 1e-12
+    return float(np.degrees(np.arcsin(sin_take)))
+
+
+__all__ = ["first_arrival_takeoff_deg", "first_arrival_time"]

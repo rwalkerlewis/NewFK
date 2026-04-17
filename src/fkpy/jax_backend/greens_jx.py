@@ -82,6 +82,8 @@ def compute_greens_jax(  # noqa: PLR0913
         npts=res.npts,
         src_depth_km=res.src_depth_km,
         rcv_depth_km=res.rcv_depth_km,
+        p_takeoff_deg=res.p_takeoff_deg,
+        s_takeoff_deg=res.s_takeoff_deg,
         meta={**res.meta, "backend": "jax-float32"},
     )
 
