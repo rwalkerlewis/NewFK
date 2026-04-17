@@ -424,4 +424,99 @@ def compute_greens(  # noqa: PLR0913, PLR0915
     )
 
 
-__all__ = ["GreensResult", "compute_greens"]
+def compute_single_force_greens(  # noqa: PLR0913
+    model: LayeredModel,
+    *,
+    src_depth_km: float,
+    rcv_depth_km: float = 0.0,
+    distances_km: F64Array | Sequence[float],
+    npts: int,
+    dt: float,
+    sigma: float = SIGMA_DEFAULT,
+    pmin: float = PMIN_DEFAULT,
+    pmax: float = PMAX_DEFAULT,
+    dk: float = DK_DEFAULT,
+    kmax: float = KMAX_DEFAULT,
+    taper: float = TAPER_DEFAULT,
+    samples_before_p: int = SAMPLES_BEFORE_P_DEFAULT,
+    n_workers: int | None = None,
+    updn: int = 0,
+    t0_s: F64Array | float | None = None,
+    hipass: tuple[int, int] | None = None,
+) -> F64Array:
+    """Compute the 6 single-force Green's functions per receiver.
+
+    Returns an array of shape ``(n_dist, 6, npts)`` with axis-1 in the
+    Lupei Zhu fk order ``Z0 R0 T0 Z1 R1 T1`` (n=0 is the vertical
+    single force; n=1 is the horizontal single force).  Used internally
+    by :func:`fkpy.greens.compute_greens` only for the SF case (mostly
+    Lamb's-problem testing).
+    """
+    distances_km = np.asarray(distances_km, dtype=np.float64).ravel()
+    flip = 1
+    model_rcv, rcv_layer = model.insert_interface(rcv_depth_km)
+    model_full, src_layer = model_rcv.insert_interface(src_depth_km)
+    if src_layer < rcv_layer:
+        src_layer, rcv_layer = rcv_layer, src_layer
+
+    mu_arr = model_full.mu_gpa.astype(np.float64)
+    thickness = model_full.thickness_km.astype(np.float64)
+    thickness[-1] = 0.0
+    vp = model_full.vp_kms.astype(np.float64)
+    vs = model_full.vs_kms.astype(np.float64)
+    qp = model_full.qp.astype(np.float64)
+    qs = model_full.qs.astype(np.float64)
+
+    hs = max(_vertical_separation(model_full, src_layer, rcv_layer), 1e-3)
+    xmax = max(float(np.max(distances_km)), hs)
+    dk_per_km = dk * np.pi / xmax
+    kc_per_km = kmax / hs
+    vs_src = float(model_full.vs_kms[src_layer])
+    pmin_per_kms = pmin / vs_src
+    pmax_per_kms = pmax / vs_src
+
+    nfft2 = npts // 2
+    dw = TWO_PI / (npts * dt)
+    sigma_rad = sigma * dw / TWO_PI
+    wc = max(int(nfft2 * (1.0 - taper)), 1)
+    taper_rad = np.pi / (nfft2 - wc + 1)
+    if hipass is None:
+        wc1, wc2 = 1, 1
+    else:
+        wc1, wc2 = int(hipass[0]), int(hipass[1])
+    if wc2 > wc:
+        wc2 = wc
+    if wc1 > wc2:
+        wc1 = wc2
+
+    t0_p_raw, _ = _approximate_first_arrivals(model_full, src_layer, rcv_layer, distances_km)
+    if t0_s is None:
+        t0_first_arrival = t0_p_raw
+    elif np.isscalar(t0_s):
+        t0_first_arrival = np.full(distances_km.shape, float(t0_s))  # type: ignore[arg-type]
+    else:
+        t0_first_arrival = np.asarray(t0_s, dtype=np.float64)
+    t0_offset = np.maximum(t0_first_arrival - samples_before_p * dt, 0.0)
+
+    s_sf = source_jump(SourceType.SINGLE_FORCE, xi=float(model_full.xi[src_layer]),
+                       mu=float(model_full.mu_gpa[src_layer]), flip=flip).astype(np.complex128)
+    sum_sf = run_omega_loop(
+        FrequencyJobConfig(
+            distances_km=distances_km, vp_kms=vp, vs_kms=vs, qp=qp, qs=qs,
+            mu=mu_arr, thickness_km=thickness, s_input=s_sf,
+            src_layer=src_layer, rcv_layer=rcv_layer,
+            src_type=int(SourceType.SINGLE_FORCE),
+            updn=updn, flip=flip,
+            sigma_rad_s=sigma_rad, pmin_per_kms=pmin_per_kms,
+            pmax_per_kms=pmax_per_kms, dk_per_km=dk_per_km, kc_per_km=kc_per_km,
+            nfft2=nfft2, dw_rad_s=dw, wc1=wc1, wc2=wc2, wc=wc,
+            taper=taper_rad, filter_const=dk_per_km / TWO_PI, t0_s=t0_offset,
+        ),
+        n_workers=n_workers,
+    )
+    traces = inverse_transform(sum_sf, dt=dt, sigma_rad_s=sigma_rad,
+                               t0_s=t0_offset, npts=npts)
+    return np.asarray(traces[:, :6, :], dtype=np.float64)
+
+
+__all__ = ["GreensResult", "compute_greens", "compute_single_force_greens"]
