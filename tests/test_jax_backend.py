@@ -78,10 +78,16 @@ def test_jax_kernel_module_re_exports() -> None:
 def test_jax_batched_source_depths() -> None:
     """Batched ``compute_greens_for_depths`` returns a stack of GFs that
     matches the per-depth numpy result to float32 precision."""
-    # exercise the public-API alias too
+    # The public-API lazy proxy resolves to the same function object
+    # as the submodule import.
     from fkpy import compute_greens_for_depths as compute_greens_for_depths_public
     from fkpy.jax_backend.greens_jx import compute_greens_for_depths
-    assert compute_greens_for_depths_public is not None
+    assert compute_greens_for_depths_public is compute_greens_for_depths
+    # And it shows the real signature, not (*args, **kwargs).
+    import inspect
+    sig = inspect.signature(compute_greens_for_depths_public)
+    assert "src_depths_km" in sig.parameters
+    assert "t0_s" in sig.parameters
 
     arr = np.array(
         [
