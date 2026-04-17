@@ -118,6 +118,8 @@ def compute_greens_for_depths(  # noqa: PLR0913
     taper: float = 0.3,
     samples_before_p: int = 50,
     updn: int = 0,
+    t0_s: F64Array | float | None = None,
+    hipass: tuple[int, int] | None = None,
 ) -> F32Array:
     """Batched evaluation of Green's functions over many source depths.
 
@@ -156,6 +158,8 @@ def compute_greens_for_depths(  # noqa: PLR0913
             taper=taper,
             samples_before_p=samples_before_p,
             updn=updn,
+            t0_s=t0_s,
+            hipass=hipass,
             n_workers=1,
             backend="numpy",
         )

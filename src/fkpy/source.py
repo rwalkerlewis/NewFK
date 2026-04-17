@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -166,6 +166,34 @@ class MomentTensor:
         Mzz: float,
     ) -> MomentTensor:
         return cls(Mxx=Mxx, Mxy=Mxy, Mxz=Mxz, Myy=Myy, Myz=Myz, Mzz=Mzz)
+
+    @classmethod
+    def from_obspy_event(cls, event: Any) -> MomentTensor:
+        """Build a :class:`MomentTensor` from an ObsPy ``Event``.
+
+        Converts the global CMT (``RTP`` = ``USE``) convention used by
+        ObsPy to the NED convention used internally by fkpy:
+
+        ::
+
+            Mxx =  Mtt    Mxy = -Mtp    Mxz =  Mrt
+            Myy =  Mpp    Myz = -Mrp    Mzz =  Mrr
+
+        References
+        ----------
+        Aki & Richards 2002, Box 4.4 — coordinate convention.
+        """
+        # Defer the obspy import: obspy is a hard dep but we want to
+        # tolerate it being mocked in tests.
+        tensor = event.focal_mechanisms[0].moment_tensor.tensor
+        return cls(
+            Mxx=tensor.m_tt,
+            Mxy=-tensor.m_tp,
+            Mxz=tensor.m_rt,
+            Myy=tensor.m_pp,
+            Myz=-tensor.m_rp,
+            Mzz=tensor.m_rr,
+        )
 
     @property
     def m_iso(self) -> float:

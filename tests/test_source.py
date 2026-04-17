@@ -76,3 +76,38 @@ class TestMomentTensor:
             mt.basis_weights(az_deg=15.0),
             mt.to_basis_weights(az_deg=15.0),
         )
+
+    def test_from_obspy_event_converts_RTP_to_NED(self) -> None:
+        """Round-trip through obspy Event using the global CMT convention."""
+        from types import SimpleNamespace
+
+        # Mock obspy event hierarchy with a plain SimpleNamespace.
+        tensor = SimpleNamespace(
+            m_rr=1.0,  # → Mzz
+            m_tt=2.0,  # → Mxx
+            m_pp=3.0,  # → Myy
+            m_rt=0.4,  # → Mxz
+            m_rp=0.5,  # → -Myz
+            m_tp=0.6,  # → -Mxy
+        )
+        event = SimpleNamespace(
+            focal_mechanisms=[SimpleNamespace(
+                moment_tensor=SimpleNamespace(tensor=tensor)
+            )]
+        )
+        mt = MomentTensor.from_obspy_event(event)
+        assert mt.Mxx == 2.0
+        assert mt.Myy == 3.0
+        assert mt.Mzz == 1.0
+        assert mt.Mxy == -0.6
+        assert mt.Mxz == 0.4
+        assert mt.Myz == -0.5
+
+    def test_from_six(self) -> None:
+        mt = MomentTensor.from_six(1.0, 0.2, -0.3, 0.5, 0.1, 0.7)
+        assert mt.Mxx == 1.0
+        assert mt.Mxy == 0.2
+        assert mt.Mxz == -0.3
+        assert mt.Myy == 0.5
+        assert mt.Myz == 0.1
+        assert mt.Mzz == 0.7
