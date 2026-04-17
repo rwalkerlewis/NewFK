@@ -90,23 +90,20 @@ def _approximate_first_arrivals(
     rcv_layer: int,
     distances_km: F64Array,
 ) -> tuple[F64Array, F64Array]:
-    """Return ``(t0_p, t0_s)`` per distance.
+    """Return ``(t0_p, t0_s)`` per distance via 1-D ray tracing.
 
-    Uses the surface refraction approximation: ``t = h_s / v + x / v_top``,
-    where ``h_s`` is the source-receiver vertical separation and ``v`` is
-    the maximum velocity in the stack between source and receiver.  Good
-    enough for window alignment (the only purpose of ``t0`` in the
-    integrator).
+    Uses :func:`fkpy.taup.first_arrival_time` (a simplified port of
+    Lupei Zhu's ``tau_p.f``) that picks the minimum of the direct ray
+    and the head-wave refractions along every deeper interface.
     """
-    if src_layer == rcv_layer:
-        hs = 0.0
-    else:
-        lo, hi = sorted((src_layer, rcv_layer))
-        hs = float(np.sum(model.thickness_km[lo:hi]))
-    vp_max = float(np.max(model.vp_kms))
-    vs_max = float(np.max(model.vs_kms))
-    t0p = (hs + distances_km) / vp_max
-    t0s = (hs + distances_km) / vs_max
+    from .taup import first_arrival_time
+
+    t0p = first_arrival_time(
+        model.vp_kms, model.thickness_km, src_layer, rcv_layer, distances_km
+    )
+    t0s = first_arrival_time(
+        model.vs_kms, model.thickness_km, src_layer, rcv_layer, distances_km
+    )
     return t0p, t0s
 
 
