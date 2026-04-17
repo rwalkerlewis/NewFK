@@ -64,4 +64,4 @@ def compute_greens_for_depths(*args, **kwargs):  # type: ignore[no-untyped-def]
 
     return _compute_greens_for_depths(*args, **kwargs)
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

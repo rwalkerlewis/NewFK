@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fkpy"
-version = "0.1.0"
+version = "0.1.1"
 description = "Frequency-wavenumber synthetic seismograms for layered elastic half-spaces (Zhu & Rivera 2002 port)."
 readme = "README.md"
 requires-python = ">=3.11"

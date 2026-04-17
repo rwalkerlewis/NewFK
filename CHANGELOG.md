@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-17
+
 ### Added
 - `--model-format pyfk` flag to read Lupei Zhu / pyfk-style model files
   (`thickness vs vp rho Qs Qp`) without manual reordering.
@@ -17,9 +19,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the `fk` SAC convention.
 - 1-D ray-traced first-arrival times via `fkpy.taup.first_arrival_time`
   (head wave + direct ray); replaces the v_max heuristic.
-- `fkpy.jax_backend.compute_greens_for_depths` for batched GF
-  evaluation across many source depths (vmap-style; threaded by
-  `jax.device_count()`).
+- `fkpy.compute_greens_for_depths` (also exposed via the JAX backend)
+  for batched GF evaluation across many source depths (vmap-style;
+  threaded by `jax.device_count()`).
+- `fkpy.kernel.displacement_kernel` and JAX submodules
+  (`propagator_jx`, `kernel_jx`, `greens_jx`) per plan §1.1.
+- `fkpy.MomentTensor.from_obspy_event` (RTP→NED conversion).
+- `fkpy.MomentTensor.to_basis_weights` alias for the documented API name.
+- `fkpy.attenuation.complex_velocity` public helper per plan §2.2.
+- `fkpy bench` CLI subcommand for one-shot benchmark from the shell.
+- `examples/quickstart.py` and `examples/zhu5.model` so the README
+  one-liner is reproducible from a fresh clone.
+- Bouchon (1981) condition (2) on `dk` is checked at runtime; a
+  WARNING is logged via the `fkpy` logger if the configured `dk`
+  exceeds the wrap-around-safe limit.
 - GitHub Actions CI workflow (`.github/workflows/ci.yml`): ruff +
   mypy strict + fast/slow/reference/gpu pytest matrix on Python
   3.11 and 3.12.
@@ -28,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SAC filename suffixes now match Lupei Zhu's `fk` convention exactly
   (`.0/.1/.3/.4/.5/.6/.7/.8/.a/.b`); the trivially-zero `n=0` SH
   component (`.2`) is dropped from the 10-component output.
+- All output is routed through the package logger; no `print()` or
+  `click.echo()` in `src/`.
+- JAX propagator now respects `jax_enable_x64` and avoids the
+  complex64 truncation warning when x64 is enabled.
 
 ### Tests
 - Aki & Richards (2002) eq. (4.23): the EX_Z spectrum scales as
@@ -36,7 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - K-K compound matrix matches the analytic Haskell entries (ZR-2002
   eq. 17) to 1e-10.
 - Zoeppritz normal-incidence reflection coefficient cross-check.
-- `tests/test_cli.py` covers the HDF5 attrs and the pyfk format flag.
+- `tests/test_cli.py`: HDF5 attrs, SAC prefix, pyfk format flag,
+  bench subcommand.
+- Dedicated unit tests for `bessel`, `transform`, `frequency`,
+  `taup`, `_backend`, `MomentTensor.from_obspy_event`, and the
+  Bouchon condition warning.
+- 69 tests (57 fast + 5 slow + 1 reference + 4 gpu/jax), no skips.
 
 ## [0.1.0] - 2026-04-17
 
