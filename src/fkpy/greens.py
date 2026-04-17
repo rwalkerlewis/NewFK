@@ -516,11 +516,35 @@ def compute_single_force_greens(  # noqa: PLR0913
 ) -> F64Array:
     """Compute the 6 single-force Green's functions per receiver.
 
-    Returns an array of shape ``(n_dist, 6, npts)`` with axis-1 in the
-    Lupei Zhu fk order ``Z0 R0 T0 Z1 R1 T1`` (n=0 is the vertical
-    single force; n=1 is the horizontal single force).  Used internally
-    by :func:`fkpy.greens.compute_greens` only for the SF case (mostly
-    Lamb's-problem testing).
+    A single force has only ``n = 0`` (vertical force) and ``n = 1``
+    (horizontal force) azimuthal modes — no ``n = 2``.
+
+    Parameters
+    ----------
+    model
+        :class:`LayeredModel` describing the half-space.
+    src_depth_km, rcv_depth_km
+        Source and receiver depths from the free surface (km).
+    distances_km
+        1-D array of horizontal distances in km.
+    npts, dt
+        Time-domain length and sampling interval (s).
+    sigma, pmin, pmax, dk, kmax, taper, samples_before_p
+        Numerical-integration parameters; see
+        :func:`fkpy.greens.compute_greens` for full descriptions.
+    n_workers, updn, t0_s, hipass
+        See :func:`fkpy.greens.compute_greens`.
+
+    Returns
+    -------
+    out : (n_dist, 6, npts) float64
+        Axis-1 ordering follows Lupei Zhu's `fk` SF convention:
+        ``[Z0, R0, T0, Z1, R1, T1]``.
+
+    See also
+    --------
+    compute_greens : the canonical 10-component output for moment
+        tensors.
     """
     distances_km = np.asarray(distances_km, dtype=np.float64).ravel()
     flip = 1
