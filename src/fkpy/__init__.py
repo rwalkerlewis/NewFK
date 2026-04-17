@@ -41,11 +41,27 @@ __all__ = [
     "SourceType",
     "ZhuBasis",
     "compute_greens",
+    "compute_greens_for_depths",
     "compute_single_force_greens",
     "logger",
     "source_jump",
     "to_obspy_stream",
     "write_sac",
 ]
+
+
+def compute_greens_for_depths(*args, **kwargs):  # type: ignore[no-untyped-def]
+    """Lazy proxy to :func:`fkpy.jax_backend.greens_jx.compute_greens_for_depths`.
+
+    JAX is an *optional* dependency.  Import is deferred so that
+    ``import fkpy`` succeeds even when JAX is not installed; the
+    helpful ImportError is raised only when the user actually calls
+    this function.
+    """
+    from .jax_backend.greens_jx import (
+        compute_greens_for_depths as _compute_greens_for_depths,
+    )
+
+    return _compute_greens_for_depths(*args, **kwargs)
 
 __version__ = "0.1.0"

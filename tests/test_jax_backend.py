@@ -74,7 +74,10 @@ def test_jax_kernel_module_re_exports() -> None:
 def test_jax_batched_source_depths() -> None:
     """Batched ``compute_greens_for_depths`` returns a stack of GFs that
     matches the per-depth numpy result to float32 precision."""
+    # exercise the public-API alias too
+    from fkpy import compute_greens_for_depths as compute_greens_for_depths_public
     from fkpy.jax_backend.greens_jx import compute_greens_for_depths
+    assert compute_greens_for_depths_public is not None
 
     arr = np.array(
         [
