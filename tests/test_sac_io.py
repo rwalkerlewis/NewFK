@@ -74,6 +74,8 @@ def test_write_sac_filename_convention(tmp_path: Path) -> None:
     prefix = str(tmp_path / "syn")
     files = res.write_sac(prefix=prefix, azimuth_deg=10.0)
     assert len(files) == N_GREEN_COMPONENTS
-    expected_suffixes = ("0", "1", "2", "3", "4", "5", "6", "7", "a", "b")
+    # Per Lupei Zhu's fk filename convention, n=0 transverse (suffix .2)
+    # is identically zero for DC and is dropped from fkpy's output.
+    expected_suffixes = ("0", "1", "3", "4", "5", "6", "7", "8", "a", "b")
     for fname, suf in zip(files, expected_suffixes, strict=True):
         assert fname.endswith(f"{suf}.sac"), f"unexpected filename {fname}"

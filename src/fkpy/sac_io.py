@@ -19,16 +19,17 @@ if TYPE_CHECKING:  # pragma: no cover
 
 # Ordering matches Lupei Zhu's filename suffixes (0..8, a, b).
 _FK_SUFFIXES: tuple[str, ...] = (
-    "0",  # DD_Z      n=0 vertical
-    "1",  # DD_R      n=0 radial
-    "2",  # DS_Z      n=1 vertical  (matches fk syn/  but our DS_T is index 4)
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "a",  # EX_Z
-    "b",  # EX_R
+    "0",  # DD_Z   (n=0 vertical)        ← fk filename ".0"
+    "1",  # DD_R   (n=0 radial)          ← fk filename ".1"
+    # n=0 transverse (".2") is identically zero for DC and is dropped.
+    "3",  # DS_Z   (n=1 vertical)        ← fk filename ".3"
+    "4",  # DS_R   (n=1 radial)          ← fk filename ".4"
+    "5",  # DS_T   (n=1 transverse)      ← fk filename ".5"
+    "6",  # SS_Z   (n=2 vertical)        ← fk filename ".6"
+    "7",  # SS_R   (n=2 radial)          ← fk filename ".7"
+    "8",  # SS_T   (n=2 transverse)      ← fk filename ".8"
+    "a",  # EX_Z   (explosion vertical)  ← fk filename ".a"
+    "b",  # EX_R   (explosion radial)    ← fk filename ".b"
 )
 
 
