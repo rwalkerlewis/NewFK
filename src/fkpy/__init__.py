@@ -21,18 +21,29 @@ from __future__ import annotations
 # Hard-fail at import time if numba is missing — see plan §1.5.
 from . import _numba_check as _numba_check  # noqa: F401  (side-effect import)
 from ._logging import logger as logger
-from .greens import GreensResult, compute_greens
-from .model import LayeredModel
+from .greens import GreensResult, compute_greens, compute_single_force_greens
+from .model import LayeredModel, ModelValidationError
 from .sac_io import to_obspy_stream, write_sac
-from .source import MomentTensor, ZhuBasis
+from .source import (
+    N_GREEN_COMPONENTS,
+    MomentTensor,
+    SourceType,
+    ZhuBasis,
+    source_jump,
+)
 
 __all__ = [
     "GreensResult",
     "LayeredModel",
+    "ModelValidationError",
     "MomentTensor",
+    "N_GREEN_COMPONENTS",
+    "SourceType",
     "ZhuBasis",
     "compute_greens",
+    "compute_single_force_greens",
     "logger",
+    "source_jump",
     "to_obspy_stream",
     "write_sac",
 ]

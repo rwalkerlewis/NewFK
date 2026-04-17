@@ -59,7 +59,10 @@ def first_arrival_time(
     d_above = thickness_km[rcv_layer:src_layer]
     if v_above.size == 0:
         # Source and receiver in same layer; vertical-only path is 0.
-        return distances_km / max(velocity_kms[src_layer], 1e-9)
+        out: F64Array = (distances_km / max(velocity_kms[src_layer], 1e-9)).astype(
+            np.float64
+        )
+        return out
 
     # Velocities below the source (used for refracted arrivals).
     v_below = velocity_kms[src_layer:]
