@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `--model-format pyfk` flag to read Lupei Zhu / pyfk-style model files
+  (`thickness vs vp rho Qs Qp`) without manual reordering.
+- HDF5 output records every input parameter (sigma, dk, kmax,
+  model_path, model_format, fkpy_version) plus take-off angles and the
+  full model array.
+- SAC headers now carry P/S take-off angles in `user1` / `user2` per
+  the `fk` SAC convention.
+- 1-D ray-traced first-arrival times via `fkpy.taup.first_arrival_time`
+  (head wave + direct ray); replaces the v_max heuristic.
+- `fkpy.jax_backend.compute_greens_for_depths` for batched GF
+  evaluation across many source depths (vmap-style; threaded by
+  `jax.device_count()`).
+- GitHub Actions CI workflow (`.github/workflows/ci.yml`): ruff +
+  mypy strict + fast/slow/reference/gpu pytest matrix on Python
+  3.11 and 3.12.
+
+### Fixed
+- SAC filename suffixes now match Lupei Zhu's `fk` convention exactly
+  (`.0/.1/.3/.4/.5/.6/.7/.8/.a/.b`); the trivially-zero `n=0` SH
+  component (`.2`) is dropped from the 10-component output.
+
+### Tests
+- Aki & Richards (2002) eq. (4.23): the EX_Z spectrum scales as
+  `cos(theta)/r` to better than 0.05 % in a homogeneous full-space.
+- Kramers–Kronig causality of the Futterman attenuation operator.
+- K-K compound matrix matches the analytic Haskell entries (ZR-2002
+  eq. 17) to 1e-10.
+- Zoeppritz normal-incidence reflection coefficient cross-check.
+- `tests/test_cli.py` covers the HDF5 attrs and the pyfk format flag.
+
 ## [0.1.0] - 2026-04-17
 
 ### Added
