@@ -1,0 +1,411 @@
+"""High-level Green's-function computation.
+
+Public entry point: :func:`compute_greens`.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
+
+import numpy as np
+
+from ._backend import current_backend
+from ._logging import logger
+from ._typing import F64Array
+from .constants import (
+    DK_DEFAULT,
+    KMAX_DEFAULT,
+    PMAX_DEFAULT,
+    PMIN_DEFAULT,
+    SAMPLES_BEFORE_P_DEFAULT,
+    SIGMA_DEFAULT,
+    TAPER_DEFAULT,
+    TWO_PI,
+)
+from .frequency import FrequencyJobConfig, run_omega_loop
+from .model import LayeredModel
+from .source import (
+    N_GREEN_COMPONENTS,
+    SourceType,
+    ZhuBasis,
+    source_jump,
+)
+from .transform import inverse_transform
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+
+@dataclass(frozen=True)
+class GreensResult:
+    """Computed Green's functions and metadata.
+
+    Attributes
+    ----------
+    gf
+        ``(n_dist, 10, npts)`` array of Green's functions for the 10
+        Zhu-basis components defined by :class:`fkpy.source.ZhuBasis`.
+    distances_km
+        Receiver distances.
+    dt
+        Time-domain sampling interval (s).
+    t0_p, t0_s
+        Approximate first-arrival times for P and S (s).
+    npts
+        Trace length.
+    meta
+        Dict carrying every input parameter, for reproducibility.
+    """
+
+    gf: F64Array
+    distances_km: F64Array
+    dt: float
+    t0_p: F64Array
+    t0_s: F64Array
+    npts: int
+    src_depth_km: float
+    rcv_depth_km: float
+    meta: dict[str, Any] = field(default_factory=dict)
+
+    # ------------------------------------------------------------------
+    def to_obspy_stream(self, *, azimuth_deg: float = 0.0, kstnm: str = "STA"):
+        """Convert to an ObsPy ``Stream`` (one Trace per dist × component)."""
+        from .sac_io import to_obspy_stream
+
+        return to_obspy_stream(self, azimuth_deg=azimuth_deg, kstnm=kstnm)
+
+    def write_sac(self, prefix: str, *, azimuth_deg: float = 0.0) -> list[str]:
+        from .sac_io import write_sac
+
+        return write_sac(self, prefix=prefix, azimuth_deg=azimuth_deg)
+
+
+# ----------------------------------------------------------------------
+# Helpers
+# ----------------------------------------------------------------------
+def _approximate_first_arrivals(
+    model: LayeredModel,
+    src_layer: int,
+    rcv_layer: int,
+    distances_km: F64Array,
+) -> tuple[F64Array, F64Array]:
+    """Return ``(t0_p, t0_s)`` per distance.
+
+    Uses the surface refraction approximation: ``t = h_s / v + x / v_top``,
+    where ``h_s`` is the source-receiver vertical separation and ``v`` is
+    the maximum velocity in the stack between source and receiver.  Good
+    enough for window alignment (the only purpose of ``t0`` in the
+    integrator).
+    """
+    if src_layer == rcv_layer:
+        hs = 0.0
+    else:
+        lo, hi = sorted((src_layer, rcv_layer))
+        hs = float(np.sum(model.thickness_km[lo:hi]))
+    vp_max = float(np.max(model.vp_kms))
+    vs_max = float(np.max(model.vs_kms))
+    t0p = (hs + distances_km) / vp_max
+    t0s = (hs + distances_km) / vs_max
+    return t0p, t0s
+
+
+def _vertical_separation(
+    model: LayeredModel, src_layer: int, rcv_layer: int
+) -> float:
+    if src_layer == rcv_layer:
+        return 0.0
+    lo, hi = sorted((src_layer, rcv_layer))
+    return float(np.sum(model.thickness_km[lo:hi]))
+
+
+# ----------------------------------------------------------------------
+# Source jump for the 10 component output
+# ----------------------------------------------------------------------
+def _build_three_jumps(
+    model: LayeredModel, src_layer: int, flip: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return source jumps for the double-couple basis (DC) and
+    explosion (EX), already cast to complex128.
+
+    The 10-component output is assembled from these two runs:
+    DC contributes 8 components (n=0,1,2 × Z,R,T minus the n=2 trivially
+    zero component), EX contributes Z and R for n=0.
+    """
+    xi = float(model.xi[src_layer])
+    mu = float(model.mu_gpa[src_layer])
+    s_dc = source_jump(SourceType.DOUBLE_COUPLE, xi=xi, mu=mu, flip=flip)
+    s_ex = source_jump(SourceType.EXPLOSION, xi=xi, mu=mu, flip=flip)
+    return s_dc.astype(np.complex128), s_ex.astype(np.complex128)
+
+
+# ----------------------------------------------------------------------
+# Public API
+# ----------------------------------------------------------------------
+def compute_greens(  # noqa: PLR0913, PLR0915
+    model: LayeredModel,
+    *,
+    src_depth_km: float,
+    rcv_depth_km: float = 0.0,
+    distances_km: F64Array | Sequence[float],
+    npts: int,
+    dt: float,
+    sigma: float = SIGMA_DEFAULT,
+    pmin: float = PMIN_DEFAULT,
+    pmax: float = PMAX_DEFAULT,
+    dk: float = DK_DEFAULT,
+    kmax: float = KMAX_DEFAULT,
+    taper: float = TAPER_DEFAULT,
+    samples_before_p: int = SAMPLES_BEFORE_P_DEFAULT,
+    n_workers: int | None = None,
+    backend: str | None = None,
+    updn: int = 0,
+) -> GreensResult:
+    """Compute the 10-component Green's functions for a layered model.
+
+    Parameters
+    ----------
+    model
+        :class:`LayeredModel` describing the half-space.
+    src_depth_km, rcv_depth_km
+        Source and receiver depths from the free surface (km).
+    distances_km
+        1-D array of horizontal distances in km.
+    npts, dt
+        Time-domain length and sampling interval (s).
+    sigma
+        Imaginary frequency shift in cycles per trace; see
+        :data:`fkpy.constants.SIGMA_DEFAULT`.
+    pmin, pmax, dk, kmax, taper, samples_before_p
+        Numerical-integration parameters; see :mod:`fkpy.constants`.
+    n_workers
+        Process-pool worker count.  ``None`` ⇒ ``os.cpu_count()``.
+    backend
+        ``"numpy"`` (default, Numba CPU) or ``"jax"`` (JAX backend).
+    updn
+        ``0`` whole field, ``+1`` down-going only, ``-1`` up-going only.
+
+    Returns
+    -------
+    GreensResult
+    """
+    backend_name = current_backend(backend)
+    if backend_name == "jax":
+        from .jax_backend.greens_jx import compute_greens_jax
+
+        return compute_greens_jax(
+            model=model,
+            src_depth_km=src_depth_km,
+            rcv_depth_km=rcv_depth_km,
+            distances_km=np.asarray(distances_km, dtype=np.float64),
+            npts=npts,
+            dt=dt,
+            sigma=sigma,
+            pmin=pmin,
+            pmax=pmax,
+            dk=dk,
+            kmax=kmax,
+            taper=taper,
+            samples_before_p=samples_before_p,
+            updn=updn,
+        )
+
+    distances_km = np.asarray(distances_km, dtype=np.float64).ravel()
+    if distances_km.ndim != 1 or distances_km.size == 0:
+        msg = "distances_km must be a 1-D array with at least one entry"
+        raise ValueError(msg)
+    if np.any(distances_km <= 0):
+        msg = "distances_km must be strictly positive (use a small value to mimic 0)"
+        raise ValueError(msg)
+    if npts < 2:
+        raise ValueError("npts must be ≥ 2")
+    if dt <= 0:
+        raise ValueError("dt must be > 0")
+
+    # --- Insert source / receiver interfaces and identify layer indices.
+    # For now we require src_depth >= rcv_depth (the "source below receiver"
+    # case).  The opposite case is handled by flipping the model.
+    flip = 1
+    if src_depth_km < rcv_depth_km:
+        # Flip the model upside-down so the source is below the receiver.
+        flipped = LayeredModel.from_array(model.to_array()[::-1].copy())
+        # After the flip, surface depths swap; transform.
+        model = flipped
+        new_src = _vertical_separation(model, 0, model.n_layers - 1) - src_depth_km
+        new_rcv = _vertical_separation(model, 0, model.n_layers - 1) - rcv_depth_km
+        src_depth_km, rcv_depth_km = new_src, new_rcv
+        flip = -1
+
+    # Insert receiver first then source (so the indices we get for src
+    # remain valid even if both fall in the same layer).
+    model_rcv, rcv_layer = model.insert_interface(rcv_depth_km)
+    model_full, src_layer = model_rcv.insert_interface(src_depth_km)
+    if src_layer < rcv_layer:
+        # Interface insertion order swapped indices; correct.
+        src_layer, rcv_layer = rcv_layer, src_layer
+
+    logger.debug(
+        "src_layer=%d rcv_layer=%d n_layers=%d",
+        src_layer,
+        rcv_layer,
+        model_full.n_layers,
+    )
+
+    # --- Build per-layer arrays.
+    mu_arr = model_full.mu_gpa.astype(np.float64)
+    thickness = model_full.thickness_km.astype(np.float64)
+    thickness[-1] = 0.0  # halfspace marker
+    vp = model_full.vp_kms.astype(np.float64)
+    vs = model_full.vs_kms.astype(np.float64)
+    qp = model_full.qp.astype(np.float64)
+    qs = model_full.qs.astype(np.float64)
+
+    # --- Wavenumber-integration grid.
+    hs = max(_vertical_separation(model_full, src_layer, rcv_layer), 1e-3)
+    xmax = max(float(np.max(distances_km)), hs)
+    dk_per_km = dk * np.pi / xmax
+    kc_per_km = kmax / hs
+    vs_src = float(model_full.vs_kms[src_layer])
+    pmin_per_kms = pmin / vs_src
+    pmax_per_kms = pmax / vs_src
+
+    # --- Frequency grid (positive frequencies only; rfft layout).
+    nfft2 = npts // 2
+    dw = TWO_PI / (npts * dt)
+    sigma_rad = sigma * dw / TWO_PI
+    wc = max(int(nfft2 * (1.0 - taper)), 1)
+    taper_rad = np.pi / (nfft2 - wc + 1)
+    wc1 = 1
+    wc2 = wc
+
+    # --- First-arrival approximations (used only as time alignment).
+    t0_p_raw, t0_s_raw = _approximate_first_arrivals(
+        model_full, src_layer, rcv_layer, distances_km
+    )
+    t0_offset = t0_p_raw - samples_before_p * dt
+    t0_offset = np.maximum(t0_offset, 0.0)
+
+    filter_const = dk_per_km / TWO_PI
+
+    # --- Build source jumps for the two runs (DC and EX).
+    s_dc, s_ex = _build_three_jumps(model_full, src_layer, flip)
+
+    # --- Run wavenumber integration twice (DC then EX).
+    sum_dc = run_omega_loop(
+        FrequencyJobConfig(
+            distances_km=distances_km,
+            vp_kms=vp,
+            vs_kms=vs,
+            qp=qp,
+            qs=qs,
+            mu=mu_arr,
+            thickness_km=thickness,
+            s_input=s_dc,
+            src_layer=src_layer,
+            rcv_layer=rcv_layer,
+            src_type=int(SourceType.DOUBLE_COUPLE),
+            updn=updn,
+            flip=flip,
+            sigma_rad_s=sigma_rad,
+            pmin_per_kms=pmin_per_kms,
+            pmax_per_kms=pmax_per_kms,
+            dk_per_km=dk_per_km,
+            kc_per_km=kc_per_km,
+            nfft2=nfft2,
+            dw_rad_s=dw,
+            wc1=wc1,
+            wc2=wc2,
+            wc=wc,
+            taper=taper_rad,
+            filter_const=filter_const,
+            t0_s=t0_offset,
+        ),
+        n_workers=n_workers,
+    )
+    sum_ex = run_omega_loop(
+        FrequencyJobConfig(
+            distances_km=distances_km,
+            vp_kms=vp,
+            vs_kms=vs,
+            qp=qp,
+            qs=qs,
+            mu=mu_arr,
+            thickness_km=thickness,
+            s_input=s_ex,
+            src_layer=src_layer,
+            rcv_layer=rcv_layer,
+            src_type=int(SourceType.EXPLOSION),
+            updn=updn,
+            flip=flip,
+            sigma_rad_s=sigma_rad,
+            pmin_per_kms=pmin_per_kms,
+            pmax_per_kms=pmax_per_kms,
+            dk_per_km=dk_per_km,
+            kc_per_km=kc_per_km,
+            nfft2=nfft2,
+            dw_rad_s=dw,
+            wc1=wc1,
+            wc2=wc2,
+            wc=wc,
+            taper=taper_rad,
+            filter_const=filter_const,
+            t0_s=t0_offset,
+        ),
+        n_workers=n_workers,
+    )
+
+    # --- Inverse FFT both runs.
+    traces_dc = inverse_transform(sum_dc, dt=dt, sigma_rad_s=sigma_rad, t0_s=t0_offset, npts=npts)
+    traces_ex = inverse_transform(sum_ex, dt=dt, sigma_rad_s=sigma_rad, t0_s=t0_offset, npts=npts)
+
+    # Pack into the 10-component output.
+    n_dist = distances_km.size
+    gf = np.zeros((n_dist, N_GREEN_COMPONENTS, npts), dtype=np.float64)
+    # DC: components 0..8 = (Z, R, T) for n = 0, 1, 2
+    gf[:, ZhuBasis.DD_Z, :] = traces_dc[:, 0, :]
+    gf[:, ZhuBasis.DD_R, :] = traces_dc[:, 1, :]
+    # n=0 transverse (T) is identically zero for DC
+    gf[:, ZhuBasis.DS_Z, :] = traces_dc[:, 3, :]
+    gf[:, ZhuBasis.DS_R, :] = traces_dc[:, 4, :]
+    gf[:, ZhuBasis.DS_T, :] = traces_dc[:, 5, :]
+    gf[:, ZhuBasis.SS_Z, :] = traces_dc[:, 6, :]
+    gf[:, ZhuBasis.SS_R, :] = traces_dc[:, 7, :]
+    gf[:, ZhuBasis.SS_T, :] = traces_dc[:, 8, :]
+    # EX: only n=0 components are nonzero; transverse identically zero.
+    gf[:, ZhuBasis.EX_Z, :] = traces_ex[:, 0, :]
+    gf[:, ZhuBasis.EX_R, :] = traces_ex[:, 1, :]
+
+    meta: dict[str, Any] = {
+        "src_depth_km": src_depth_km,
+        "rcv_depth_km": rcv_depth_km,
+        "distances_km": distances_km,
+        "npts": npts,
+        "dt": dt,
+        "sigma": sigma,
+        "pmin": pmin,
+        "pmax": pmax,
+        "dk": dk,
+        "kmax": kmax,
+        "taper": taper,
+        "samples_before_p": samples_before_p,
+        "updn": updn,
+        "flip": flip,
+        "src_layer": src_layer,
+        "rcv_layer": rcv_layer,
+        "model_array": model_full.to_array(),
+    }
+
+    return GreensResult(
+        gf=gf,
+        distances_km=distances_km,
+        dt=dt,
+        t0_p=t0_p_raw,
+        t0_s=t0_s_raw,
+        npts=npts,
+        src_depth_km=src_depth_km,
+        rcv_depth_km=rcv_depth_km,
+        meta=meta,
+    )
+
+
+__all__ = ["GreensResult", "compute_greens"]
