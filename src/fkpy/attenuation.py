@@ -40,12 +40,19 @@ def futterman_attenuation_factor(omega_rad_s: complex | C128Array) -> complex | 
     return val.astype(np.complex128)
 
 
-def complex_wavenumber_squared(
+def complex_velocity(
     omega_rad_s: complex,
     velocity_kms: F64Array,
     q: F64Array,
 ) -> C128Array:
-    """Return ``(ω / ṽ)²`` for each layer.
+    """Return the complex Futterman velocity per layer.
+
+    .. math::
+
+       \\tilde v(\\omega) = v\\,\\bigl(1 + \\frac{\\ln(\\omega / 2\\pi Q_\\mathrm{ref})}{\\pi Q}
+                            + \\frac{i}{2 Q}\\bigr)
+
+    (Aki & Richards 2002, p. 182).
 
     Parameters
     ----------
@@ -55,17 +62,27 @@ def complex_wavenumber_squared(
         Per-layer real velocity (vp or vs) in km/s.
     q
         Per-layer Q (Qp or Qs).
-
-    Returns
-    -------
-    k_squared
-        ``(ω / ṽ)²`` array, complex128.
     """
     att = futterman_attenuation_factor(omega_rad_s)
-    v_complex = velocity_kms * (1.0 + att / q)
-    k = omega_rad_s / v_complex
+    v_complex: C128Array = (velocity_kms * (1.0 + att / q)).astype(np.complex128)
+    return v_complex
+
+
+def complex_wavenumber_squared(
+    omega_rad_s: complex,
+    velocity_kms: F64Array,
+    q: F64Array,
+) -> C128Array:
+    """Return ``(ω / ṽ)²`` for each layer (square of :func:`complex_velocity`'s
+    inverse)."""
+    v = complex_velocity(omega_rad_s, velocity_kms, q)
+    k = omega_rad_s / v
     out: C128Array = (k * k).astype(np.complex128)
     return out
 
 
-__all__ = ["complex_wavenumber_squared", "futterman_attenuation_factor"]
+__all__ = [
+    "complex_velocity",
+    "complex_wavenumber_squared",
+    "futterman_attenuation_factor",
+]

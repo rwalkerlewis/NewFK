@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from fkpy.attenuation import (
+    complex_velocity,
     complex_wavenumber_squared,
     futterman_attenuation_factor,
 )
@@ -38,6 +39,26 @@ class TestFutterman:
         ksq_high = complex_wavenumber_squared(omega, v, np.array([10000.0]))
         ksq_low = complex_wavenumber_squared(omega, v, np.array([100.0]))
         assert abs(ksq_low.imag).item() > abs(ksq_high.imag).item()
+
+    def test_complex_velocity_matches_wavenumber_squared(self) -> None:
+        """``(omega / complex_velocity)**2`` must equal complex_wavenumber_squared."""
+        omega = TWO_PI * 3.0 - 0.05j
+        v = np.array([5.0, 6.0])
+        q = np.array([300.0, 800.0])
+        v_c = complex_velocity(omega, v, q)
+        k_from_v = (omega / v_c) ** 2
+        k_direct = complex_wavenumber_squared(omega, v, q)
+        np.testing.assert_allclose(k_from_v, k_direct, rtol=1e-12)
+
+    def test_complex_velocity_real_at_qref(self) -> None:
+        """At omega = 2 pi Q_REF_HZ the complex velocity has zero log-slope
+        (real part equals v · (1 + 0/Q)) and imaginary part v/(2Q)."""
+        omega = TWO_PI * Q_REF_HZ
+        v = np.array([5.0])
+        q = np.array([100.0])
+        v_c = complex_velocity(omega, v, q)
+        np.testing.assert_allclose(v_c.real, v, rtol=1e-12)
+        np.testing.assert_allclose(v_c.imag, v / (2 * q), rtol=1e-12)
 
     def test_causality_kramers_kronig(self) -> None:
         """Futterman with Q_ref = 1 Hz is a *causal* attenuation
