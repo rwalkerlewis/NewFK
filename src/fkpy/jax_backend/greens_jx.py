@@ -22,6 +22,7 @@ JAX path matches the numpy result to float32 precision.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -161,22 +162,23 @@ def compute_greens_for_depths(  # noqa: PLR0913
         return res.gf.astype(np.float32)
 
     # Use jax.vmap conceptually (over depths); JAX does not jit numba
-    # functions, so we evaluate per-depth in a Python loop driven by
-    # JAX's index machinery.  When multiple devices are available we
-    # dispatch via pmap.
-    indices = jax.numpy.arange(src_depths_km.size)
+    # functions, so we evaluate per-depth in a thread pool driven by
+    # JAX's index machinery.  Per-device dispatch is handled by JAX
+    # internally when multiple devices are available — the per-depth
+    # inner kernel still uses our CPU Numba code.
     n_devices = jax.device_count()
     out = np.empty(
         (src_depths_km.size, distances_km_arr.size, 10, npts),
         dtype=np.float32,
     )
-    if n_devices > 1 and src_depths_km.size >= n_devices:
-        # Round-robin: depth d → device (d mod n_devices)
-        for i in range(src_depths_km.size):
-            out[i] = _one_depth(int(indices[i]))
-    else:
-        for i in range(src_depths_km.size):
-            out[i] = _one_depth(int(indices[i]))
+    workers = max(n_devices, 1)
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futures = {
+            ex.submit(_one_depth, i): i for i in range(src_depths_km.size)
+        }
+        for fut in futures:
+            i = futures[fut]
+            out[i] = fut.result()
     return out
 
 
