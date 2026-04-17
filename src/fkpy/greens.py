@@ -160,6 +160,8 @@ def compute_greens(  # noqa: PLR0913, PLR0915
     n_workers: int | None = None,
     backend: str | None = None,
     updn: int = 0,
+    t0_s: F64Array | float | None = None,
+    hipass: tuple[int, int] | None = None,
 ) -> GreensResult:
     """Compute the 10-component Green's functions for a layered model.
 
@@ -275,14 +277,25 @@ def compute_greens(  # noqa: PLR0913, PLR0915
     sigma_rad = sigma * dw / TWO_PI
     wc = max(int(nfft2 * (1.0 - taper)), 1)
     taper_rad = np.pi / (nfft2 - wc + 1)
-    wc1 = 1
-    wc2 = wc
+    if hipass is None:
+        wc1, wc2 = 1, 1
+    else:
+        wc1, wc2 = int(hipass[0]), int(hipass[1])
+    if wc2 > wc:
+        wc2 = wc
+    if wc1 > wc2:
+        wc1 = wc2
 
     # --- First-arrival approximations (used only as time alignment).
     t0_p_raw, t0_s_raw = _approximate_first_arrivals(
         model_full, src_layer, rcv_layer, distances_km
     )
-    t0_offset = t0_p_raw - samples_before_p * dt
+    if t0_s is None:
+        t0_offset = t0_p_raw - samples_before_p * dt
+    elif np.isscalar(t0_s):
+        t0_offset = np.full(distances_km.shape, float(t0_s))  # type: ignore[arg-type]
+    else:
+        t0_offset = np.asarray(t0_s, dtype=np.float64)  # type: ignore[arg-type]
     t0_offset = np.maximum(t0_offset, 0.0)
 
     filter_const = dk_per_km / TWO_PI
