@@ -186,8 +186,10 @@ def first_arrival_takeoff_deg(
     v_below = velocity_kms[src_layer:]
 
     out = np.empty_like(distances_km)
-    for i, x in enumerate(distances_km):
-        out[i] = _takeoff_single(x, v_above, d_above, v_below, v_src)
+    for i in range(distances_km.size):
+        out[i] = float(
+            _takeoff_single(float(distances_km[i]), v_above, d_above, v_below, v_src)
+        )
     return out
 
 
@@ -204,8 +206,8 @@ def _takeoff_single(
         p_direct * x
         + np.sum(np.sqrt(np.maximum(1.0 / v_above**2 - p_direct**2, 0.0)) * d_above)
     )
-    best_t = t_direct
-    best_p = p_direct
+    best_t = float(t_direct)
+    best_p = float(p_direct)
     for j in range(min(v_below.size, 1)):
         v_below_j = float(v_below[j])
         if v_below_j <= np.max(v_above) + 1e-12:
@@ -221,8 +223,8 @@ def _takeoff_single(
         )
         t_head = (p_crit * leg_dx + tau_leg) + (x - leg_dx) / v_below_j
         if t_head < best_t:
-            best_t = t_head
-            best_p = p_crit
+            best_t = float(t_head)
+            best_p = float(p_crit)
     sin_take = best_p * v_src
     if sin_take >= 1.0:
         sin_take = 1.0 - 1e-12

@@ -28,13 +28,13 @@ def test_jax_backend_matches_numpy_backend() -> None:
         ]
     )
     model = LayeredModel.from_array(arr)
-    kw = dict(
-        src_depth_km=5.0,
-        distances_km=np.array([50.0]),
-        npts=128,
-        dt=0.5,
-        n_workers=1,
-    )
+    kw = {
+        "src_depth_km": 5.0,
+        "distances_km": np.array([50.0]),
+        "npts": 128,
+        "dt": 0.5,
+        "n_workers": 1,
+    }
     res_np = compute_greens(model=model, backend="numpy", **kw)  # type: ignore[arg-type]
     res_jx = compute_greens(model=model, backend="jax", **kw)  # type: ignore[arg-type]
     rel = np.max(np.abs(res_np.gf - res_jx.gf)) / np.max(np.abs(res_np.gf))

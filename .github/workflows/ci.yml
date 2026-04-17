@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Set up venv and install
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv venv .venv
+          source .venv/bin/activate
+          uv pip install -e .[dev]
+      - name: ruff
+        run: |
+          source .venv/bin/activate
+          ruff check src/ tests/
+      - name: mypy
+        run: |
+          source .venv/bin/activate
+          mypy src/fkpy
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Set up venv and install
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv venv .venv
+          source .venv/bin/activate
+          uv pip install -e .[dev,jax]
+      - name: Run fast tests
+        run: |
+          source .venv/bin/activate
+          pytest -m fast --tb=short
+      - name: Run slow tests
+        run: |
+          source .venv/bin/activate
+          pytest -m slow --tb=short
+      - name: Run reference regression
+        run: |
+          source .venv/bin/activate
+          pytest -m reference --tb=short
+      - name: Run JAX (CPU) tests
+        run: |
+          source .venv/bin/activate
+          pytest -m gpu --tb=short

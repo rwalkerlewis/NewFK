@@ -21,17 +21,18 @@ JAX path matches the numpy result to float32 precision.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 if TYPE_CHECKING:
-    from .._typing import F64Array
+    from .._typing import F32Array, F64Array
     from ..greens import GreensResult
     from ..model import LayeredModel
 
 
-def _ensure_jax():
+def _ensure_jax() -> Any:
     try:
         import jax
     except ImportError as exc:  # pragma: no cover - environment-dependent
@@ -103,9 +104,9 @@ def compute_greens_jax(  # noqa: PLR0913
 def compute_greens_for_depths(  # noqa: PLR0913
     *,
     model: LayeredModel,
-    src_depths_km,
+    src_depths_km: F64Array | Sequence[float],
     rcv_depth_km: float = 0.0,
-    distances_km,
+    distances_km: F64Array | Sequence[float],
     npts: int,
     dt: float,
     sigma: float = 2.0,
@@ -116,7 +117,7 @@ def compute_greens_for_depths(  # noqa: PLR0913
     taper: float = 0.3,
     samples_before_p: int = 50,
     updn: int = 0,
-):
+) -> F32Array:
     """Batched evaluation of Green's functions over many source depths.
 
     Returns a numpy array of shape ``(n_depths, n_dist, 10, npts)``,

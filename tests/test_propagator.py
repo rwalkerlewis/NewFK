@@ -139,7 +139,7 @@ class TestKernelSmoke:
         ZR-2002 eq. (17), then plugging into the standard Zoeppritz
         algebra and recovering ``R_PP`` to 1 part in 1e10.
         """
-        rho1, alpha1, beta1 = 2.65, 5.5, 5.5 / np.sqrt(3.0)
+        rho1, alpha1, _beta1 = 2.65, 5.5, 5.5 / np.sqrt(3.0)
         rho2, alpha2, beta2 = 3.36, 8.1, 8.1 / np.sqrt(3.0)
         Z1, Z2 = rho1 * alpha1, rho2 * alpha2
         R_PP_expected = (Z2 - Z1) / (Z2 + Z1)

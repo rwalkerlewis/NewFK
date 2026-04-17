@@ -64,11 +64,11 @@ def test_explosion_one_over_r_scaling() -> None:
     )
     # EX_R component (far-field radial impulse response).  Pick the
     # peak in a 6 s window around the predicted P arrival.
-    arr_t = np.sqrt(distances**2 + 100.0) / 6.0
+    np.sqrt(distances**2 + 100.0) / 6.0
     peaks = np.empty(distances.size)
     for i in range(distances.size):
         # Trace start is at arr_t[i] - samples_before_p*dt.
-        center = int(50)  # samples_before_p
+        center = 50  # samples_before_p
         n_half = int(3.0 / dt)
         seg = res.gf[i, 9, max(center - n_half, 0) : center + n_half]
         peaks[i] = np.max(np.abs(seg))

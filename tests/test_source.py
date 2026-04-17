@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 
 from fkpy.source import (
-    MomentTensor,
     N_GREEN_COMPONENTS,
+    MomentTensor,
     SourceType,
     ZhuBasis,
     source_jump,
