@@ -43,11 +43,22 @@ def compound_matrix_jx(
     and ``jax.jit`` can be applied.
     """
     try:
+        import jax
         import jax.numpy as jnp
     except ImportError as exc:  # pragma: no cover - environment-dependent
         raise ImportError(
             "JAX backend requires `jax`; install with `pip install fkpy[jax]`."
         ) from exc
+
+    # JAX defaults to complex64.  The compound matrix carries
+    # cosh(ν·d) terms whose moderate-kd values exceed complex64
+    # dynamic range; promote to complex128 if x64 is enabled,
+    # otherwise fall back to complex64 with a debug log.
+    cdtype = (
+        jnp.complex128
+        if jax.config.read("jax_enable_x64")  # type: ignore[no-untyped-call]
+        else jnp.complex64
+    )
 
     k2 = k * k
     kka = kp_sq / k2
@@ -137,7 +148,7 @@ def compound_matrix_jx(
         [0.0 + 0j] * 5 + [Cb, -2.0 * Yb / mu2],
         [0.0 + 0j] * 5 + [-mu2 * Xb / 2.0, Cb],
     ]
-    return jnp.array(rows, dtype=jnp.complex128)
+    return jnp.array(rows, dtype=cdtype)
 
 
 __all__ = ["compound_matrix_jx"]

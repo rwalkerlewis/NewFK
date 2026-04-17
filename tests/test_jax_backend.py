@@ -35,8 +35,8 @@ def test_jax_backend_matches_numpy_backend() -> None:
         "dt": 0.5,
         "n_workers": 1,
     }
-    res_np = compute_greens(model=model, backend="numpy", **kw)  # type: ignore[arg-type]
-    res_jx = compute_greens(model=model, backend="jax", **kw)  # type: ignore[arg-type]
+    res_np = compute_greens(model=model, backend="numpy", **kw)
+    res_jx = compute_greens(model=model, backend="jax", **kw)
     rel = np.max(np.abs(res_np.gf - res_jx.gf)) / np.max(np.abs(res_np.gf))
     assert rel < 1e-3
 
