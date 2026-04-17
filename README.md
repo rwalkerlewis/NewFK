@@ -1,1 +1,157 @@
-# NewFK
+# fkpy
+
+[![CI](https://github.com/rwalkerlewis/NewFK/actions/workflows/ci.yml/badge.svg)](https://github.com/rwalkerlewis/NewFK/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+Frequency-wavenumber synthetic seismograms for a layered elastic half-space.
+
+`fkpy` is a Python port of Lupei Zhu's `fk` Fortran package
+([Zhu & Rivera, GJI 2002](https://doi.org/10.1046/j.1365-246X.2002.01610.x))
+intended for moment-tensor inversion (`mtinvert`) and explosion Green's
+functions for regional nuclear monitoring.
+
+## Highlights
+
+- Discrete wavenumber integration (Bouchon, BSSA 1981, eq. 9), with a
+  complex frequency shift `w = ω − iσ` to suppress time-domain wrap-around.
+- **Kennett–Kerry reflection/transmission matrix** recursion (Kennett 1983,
+  §6.3) — unconditionally stable for thick layers at high frequency.
+  No Haskell `cosh(ν·d)` overflow gymnastics.
+- Causal Futterman attenuation (Aki & Richards 2002, p. 182) with
+  `Q_ref = 1 Hz`.
+- Numba-jitted hot loops (propagator, kernel, wavenumber summation);
+  `concurrent.futures.ProcessPoolExecutor` parallelism over frequency.
+- Optional JAX backend behind `FK_BACKEND=jax` for GPU batch runs over
+  many source depths.
+- SAC writer matching Zhu's `fk` header conventions.
+
+## Install
+
+```bash
+uv pip install fkpy
+# or, for development:
+git clone <this repo>
+cd fkpy
+uv venv
+uv pip install -e .[dev]
+```
+
+Python 3.11+. Numba is a hard dependency; install will fail loudly without
+it (no silent fall-back to pure-Python).
+
+## One-line example
+
+```python
+from fkpy import LayeredModel, compute_greens
+
+model = LayeredModel.from_text("examples/zhu5.model")
+gf = compute_greens(
+    model,
+    src_depth_km=8.0,
+    distances_km=[50, 100, 150],
+    npts=2048,
+    dt=0.1,
+)
+gf.to_obspy_stream(azimuth_deg=42.0).write("synth.mseed", format="MSEED")
+```
+
+A more complete script lives in [`examples/quickstart.py`](examples/quickstart.py).
+
+## CLI
+
+```bash
+# Minimal usage — write Green's functions to HDF5
+fkpy compute --model model.nd --depth 8 \
+             --distances 50,100,150 \
+             --npts 2048 --dt 0.1 --out greens.h5
+
+# Also write per-component SAC files (Lupei Zhu's `fk` filename style)
+fkpy compute --model model.nd --depth 8 --distances 50 \
+             --npts 1024 --dt 0.2 --out greens.h5\
+             --sac-prefix synth --azimuth 37.5 --kstnm STA01
+
+# Read the pyfk column convention (thickness vs vp rho Qs Qp)
+fkpy compute --model legacy.nd --model-format pyfk \
+             --depth 8 --distances 50 \
+             --npts 1024 --dt 0.2 --out greens.h5
+
+# Run the canonical 5-layer benchmark and report wall time
+fkpy bench --workers 4
+```
+
+A complete shell script lives in [`examples/run_cli.sh`](examples/run_cli.sh).
+
+`greens.h5` contains a single dataset `gf` of shape `(n_dist, 10, npts)`,
+with attribute metadata recording every input parameter
+(`sigma, dk, kmax, model_path, model_format, fkpy_version`) plus
+auxiliary datasets `distances_km, t0_p, t0_s, p_takeoff_deg,
+s_takeoff_deg, model`.
+
+The 10 Green's-function components per distance are, in order:
+
+| Index | `ZhuBasis` | SAC suffix | Description |
+|------:|:----------:|:----------:|-------------|
+| 0 | `DD_Z` | `.0` | 45° dip-slip, vertical |
+| 1 | `DD_R` | `.1` | 45° dip-slip, radial |
+| 2 | `DS_Z` | `.3` | vertical dip-slip, vertical |
+| 3 | `DS_R` | `.4` | vertical dip-slip, radial |
+| 4 | `DS_T` | `.5` | vertical dip-slip, transverse |
+| 5 | `SS_Z` | `.6` | vertical strike-slip, vertical |
+| 6 | `SS_R` | `.7` | vertical strike-slip, radial |
+| 7 | `SS_T` | `.8` | vertical strike-slip, transverse |
+| 8 | `EX_Z` | `.a` | explosion, vertical |
+| 9 | `EX_R` | `.b` | explosion, radial |
+
+(The trivially-zero `n=0` SH component, which Lupei Zhu's `fk` writes
+to suffix `.2` as an all-zero trace, is dropped from fkpy's
+10-component output.)
+
+This mirrors Zhu's `fk2mt` consumption order.
+
+## Benchmark
+
+Canonical 5-layer crustal model, source at 8 km, 10 receiver distances
+from 10 to 200 km, 2048 samples at dt = 0.1 s, run on a 4-core x86-64
+cloud VM (Linux 6.1):
+
+| Implementation | wall clock | notes |
+|---|---|---|
+| Lupei Zhu Fortran `fk` (1 core, `gfortran -O`) | **1.8 s** | reference |
+| `fkpy` numba (1 core, warm) | **4.6 s** | meets the 8 s target |
+| `fkpy` `ProcessPoolExecutor` (4 cores) | **1.4 s** | beats Fortran `fk` |
+| `fkpy` JAX backend (CPU float32) | currently equal to numpy backend; native JAX kernels planned for v0.2 |
+
+Reproduce on your machine:
+
+```bash
+fkpy bench --workers 1
+fkpy bench --workers 4
+
+# or via the module entry point:
+python -m fkpy.benchmarks.canonical_zhu5 --workers 4
+```
+
+## Testing
+
+```bash
+pytest -m fast        # unit tests, < 1 s each
+pytest -m slow        # integration: Lamb's problem, whole-space explosion, MT inversion
+pytest -m reference   # regression vs frozen Fortran-fk output
+pytest -m gpu         # JAX backend tests; skipped without GPU
+```
+
+## References
+
+- M. Bouchon (1981). A simple method to calculate Green's functions for
+  elastic layered media. *BSSA* **71**, 959–971.
+- B. L. N. Kennett (1983). *Seismic Wave Propagation in Stratified Media.*
+  Cambridge University Press.
+- L. Zhu & L. A. Rivera (2002). A note on the dynamic and static
+  displacements from a point source in multilayered media.
+  *Geophys. J. Int.* **148**, 619–627.
+- K. Aki & P. G. Richards (2002). *Quantitative Seismology*, 2nd ed.
+
+## License
+
+MIT — see `LICENSE`.

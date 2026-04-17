@@ -1,0 +1,105 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fkpy"
+version = "0.1.1"
+description = "Frequency-wavenumber synthetic seismograms for layered elastic half-spaces (Zhu & Rivera 2002 port)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "fkpy authors" }]
+keywords = ["seismology", "synthetic seismograms", "Green's functions", "moment tensor", "FK"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS :: MacOS X",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "numpy>=1.26",
+  "scipy>=1.11",
+  "numba>=0.59",
+  "obspy>=1.4",
+  "h5py>=3.10",
+  "click>=8.1",
+]
+
+[project.optional-dependencies]
+jax = ["jax[cpu]>=0.4.30"]
+gpu = ["jax[cuda12]>=0.4.30"]
+dev = [
+  "pytest>=8",
+  "pytest-cov>=5",
+  "ruff>=0.5",
+  "mypy>=1.10",
+]
+
+[project.scripts]
+fkpy = "fkpy.cli:main"
+
+[project.urls]
+Homepage = "https://example.org/fkpy"
+Source = "https://example.org/fkpy"
+Issues = "https://example.org/fkpy/issues"
+
+[tool.hatch.build]
+include = ["src/fkpy/**", "README.md", "CHANGELOG.md", "LICENSE"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fkpy"]
+
+[tool.ruff]
+src = ["src"]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "C4", "NPY"]
+ignore = [
+  "N803",  # argument names like Vp/Vs are physical quantities
+  "N806",  # local variables Mxx etc.
+  "E741",  # ambiguous l (used as layer index)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011", "N802"]
+
+[tool.mypy]
+strict = true
+files = ["src/fkpy"]
+python_version = "3.11"
+warn_unused_ignores = true
+disallow_any_unimported = false
+plugins = []
+# Numba's @njit-decorated functions are not visible to mypy (the
+# `numba` package ships no stubs).  We disable the corresponding
+# "untyped decorator makes function untyped" warning project-wide
+# rather than scattering # type: ignore[untyped-decorator] comments
+# across every JIT helper.
+disable_error_code = ["untyped-decorator"]
+
+[[tool.mypy.overrides]]
+module = ["numba.*", "obspy.*", "scipy.*", "h5py.*", "jax.*", "jaxlib.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+markers = [
+  "fast: <1s unit tests",
+  "slow: integration tests that take seconds",
+  "reference: regression vs frozen Fortran fk output",
+  "gpu: requires JAX + GPU/CUDA",
+]
+testpaths = ["tests"]
+filterwarnings = [
+  "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["src/fkpy"]
