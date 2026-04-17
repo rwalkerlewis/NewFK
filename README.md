@@ -61,13 +61,32 @@ A more complete script lives in [`examples/quickstart.py`](examples/quickstart.p
 ## CLI
 
 ```bash
+# Minimal usage — write Green's functions to HDF5
 fkpy compute --model model.nd --depth 8 \
              --distances 50,100,150 \
              --npts 2048 --dt 0.1 --out greens.h5
+
+# Also write per-component SAC files (Lupei Zhu's `fk` filename style)
+fkpy compute --model model.nd --depth 8 --distances 50 \
+             --npts 1024 --dt 0.2 --out greens.h5\
+             --sac-prefix synth --azimuth 37.5 --kstnm STA01
+
+# Read the pyfk column convention (thickness vs vp rho Qs Qp)
+fkpy compute --model legacy.nd --model-format pyfk \
+             --depth 8 --distances 50 \
+             --npts 1024 --dt 0.2 --out greens.h5
+
+# Run the canonical 5-layer benchmark and report wall time
+fkpy bench --workers 4
 ```
 
+A complete shell script lives in [`examples/run_cli.sh`](examples/run_cli.sh).
+
 `greens.h5` contains a single dataset `gf` of shape `(n_dist, 10, npts)`,
-with attribute metadata recording every input parameter.
+with attribute metadata recording every input parameter
+(`sigma, dk, kmax, model_path, model_format, fkpy_version`) plus
+auxiliary datasets `distances_km, t0_p, t0_s, p_takeoff_deg,
+s_takeoff_deg, model`.
 
 The 10 Green's-function components per distance are, in order:
 
