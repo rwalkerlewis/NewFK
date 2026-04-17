@@ -42,6 +42,14 @@ def main() -> None:
     weights = mt.basis_weights(az_deg=37.0)
     print(f"Projected MT weights shape: {weights.shape}")
 
+    # Synthesise the 3-component (Z, R, T) seismogram at receiver 0
+    # by linearly combining the 10 Green's functions per the
+    # `MomentTensor.basis_weights` matrix.
+    synth_3comp = np.einsum("cg,gt->ct", weights, result.gf[0])
+    print(f"3-component synthetic shape: {synth_3comp.shape}")
+    for ic, name in enumerate(("Z", "R", "T")):
+        print(f"  peak |{name}| = {np.max(np.abs(synth_3comp[ic])):.3e}")
+
 
 if __name__ == "__main__":
     main()
