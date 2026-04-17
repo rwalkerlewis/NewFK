@@ -184,20 +184,54 @@ def compute_greens(  # noqa: PLR0913, PLR0915
     npts, dt
         Time-domain length and sampling interval (s).
     sigma
-        Imaginary frequency shift in cycles per trace; see
-        :data:`fkpy.constants.SIGMA_DEFAULT`.
-    pmin, pmax, dk, kmax, taper, samples_before_p
-        Numerical-integration parameters; see :mod:`fkpy.constants`.
+        Imaginary frequency shift in cycles per trace.  The complex
+        angular frequency is ``ω̃ = ω − iσ`` with
+        ``σ = sigma · dω / (2π)`` (Bouchon 1981).  In the time domain
+        this multiplies the response by ``exp(−σ·t)``; we compensate
+        post-IFFT (Graves 2000).  Default :data:`fkpy.constants.SIGMA_DEFAULT`
+        = 2 cycles per trace.
+    pmin, pmax
+        Slowness window in units of ``1 / v_s_at_source``.
+        Defaults: ``pmin=0`` (full body-wave coverage),
+        ``pmax=1`` (cap at the S-wave slowness).
+    dk
+        Wavenumber sampling, in units of ``π / max(x_max, h_s)``.
+        Default 0.3 (Bouchon 1981 condition (2) is checked at
+        runtime; a WARNING is emitted if violated).
+    kmax
+        Maximum wavenumber at ``ω=0`` in units of ``1 / h_s``.
+        Default 15 — the kernel decays as ``exp(−k·h_s)`` so this
+        gives < 1e-7 contribution from the truncation.
+    taper
+        Cosine roll-off fraction below f_Nyq (default 0.3).
+    samples_before_p
+        Number of trace samples reserved before the first arrival
+        (default 50).
     n_workers
         Process-pool worker count.  ``None`` ⇒ ``os.cpu_count()``.
     backend
         ``"numpy"`` (default, Numba CPU) or ``"jax"`` (JAX backend).
     updn
         ``0`` whole field, ``+1`` down-going only, ``-1`` up-going only.
+    t0_s
+        Optional override for the per-distance first-arrival time used
+        as the time origin.  Either a scalar or an array of length
+        ``len(distances_km)``.  When ``None`` the value is computed by
+        :mod:`fkpy.taup`.
+    hipass
+        Optional ``(wc1, wc2)`` integers defining a low-frequency
+        cosine taper (zero below ``(wc1-1)·dω``, full above
+        ``(wc2-1)·dω``).  ``None`` ⇒ no high-pass.
 
     Returns
     -------
     GreensResult
+        ``gf`` shape ``(n_dist, 10, npts)``; component order matches
+        :class:`fkpy.source.ZhuBasis`.
+
+    See also
+    --------
+    fkpy.constants : default values cited above with paper + equation.
     """
     backend_name = current_backend(backend)
     if backend_name == "jax":
