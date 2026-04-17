@@ -43,6 +43,34 @@ def test_jax_backend_matches_numpy_backend() -> None:
 
 @pytest.mark.gpu
 @pytest.mark.skipif(not JAX_AVAILABLE, reason="jax not installed")
+def test_jax_propagator_compound_matrix_runs() -> None:
+    """The JAX-numpy compound-matrix builder must produce a finite
+    7×7 complex matrix that is JIT-compilable."""
+    import jax
+
+    from fkpy.jax_backend.propagator_jx import compound_matrix_jx
+
+    jit_cm = jax.jit(compound_matrix_jx, static_argnames=())
+    out = jit_cm(0.05, 1.0 + 0.01j, 1.5 + 0.02j, 5.0, 30.0)
+    assert out.shape == (7, 7)
+    # JAX default is complex64; user can opt into complex128 via
+    # JAX_ENABLE_X64=1.
+    assert out.dtype in (np.complex64, np.complex128)
+    assert np.all(np.isfinite(np.asarray(out)))
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(not JAX_AVAILABLE, reason="jax not installed")
+def test_jax_kernel_module_re_exports() -> None:
+    """The plan-mandated displacement_kernel_jx symbol exists and is
+    callable (currently delegates to the Numba kernel)."""
+    from fkpy.jax_backend.kernel_jx import displacement_kernel_jx
+
+    assert callable(displacement_kernel_jx)
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(not JAX_AVAILABLE, reason="jax not installed")
 def test_jax_batched_source_depths() -> None:
     """Batched ``compute_greens_for_depths`` returns a stack of GFs that
     matches the per-depth numpy result to float32 precision."""
