@@ -135,8 +135,11 @@ def compute(  # noqa: PLR0913
 def bench(n_workers: int) -> None:
     from .benchmarks.canonical_zhu5 import run
 
+    # Ensure the logger emits to stderr at INFO so the user sees the result.
+    if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
     elapsed = run(workers=n_workers)
-    click.echo(f"{elapsed:.2f} s with {n_workers} worker(s)")
+    logger.info("%.2f s with %d worker(s)", elapsed, n_workers)
 
 
 if __name__ == "__main__":  # pragma: no cover

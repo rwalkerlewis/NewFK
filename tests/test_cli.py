@@ -54,12 +54,17 @@ def test_cli_compute_writes_hdf5(tmp_path: Path) -> None:
 
 
 @pytest.mark.fast
-def test_cli_bench_runs() -> None:
-    """The `fkpy bench` subcommand runs the canonical benchmark."""
+def test_cli_bench_runs(caplog) -> None:
+    """The `fkpy bench` subcommand runs the canonical benchmark and
+    emits the timing through the package logger."""
+    import logging
+
     runner = CliRunner()
-    result = runner.invoke(main, ["bench", "--workers", "1"])
+    with caplog.at_level(logging.INFO, logger="fkpy"):
+        result = runner.invoke(main, ["bench", "--workers", "1"])
     assert result.exit_code == 0, f"CLI failed: {result.output}"
-    assert "s with" in result.output
+    bench_records = [r for r in caplog.records if "s with" in r.message]
+    assert bench_records, "Expected a timing log record from the bench subcommand."
 
 
 @pytest.mark.fast

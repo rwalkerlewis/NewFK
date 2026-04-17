@@ -71,7 +71,7 @@ def main() -> None:  # pragma: no cover - CLI entry
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     elapsed = run(workers=args.workers)
-    print(f"{elapsed:.2f} s with {args.workers} worker(s)")
+    logger.info("%.2f s with %d worker(s)", elapsed, args.workers)
     if args.out is not None:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(f"{elapsed:.6f}\n")
