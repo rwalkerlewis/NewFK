@@ -26,7 +26,7 @@ import numpy as np
 
 from ._typing import C128Array, F64Array
 from .bessel import precompute_bessel
-from .propagator import kernel
+from .kernel import displacement_kernel as kernel
 
 
 @nb.njit(cache=True)
