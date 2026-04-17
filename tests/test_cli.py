@@ -63,6 +63,38 @@ def test_cli_bench_runs() -> None:
 
 
 @pytest.mark.fast
+def test_cli_compute_with_sac_prefix(tmp_path: Path) -> None:
+    """`--sac-prefix foo` writes one SAC file per (distance, component)."""
+    model_path = tmp_path / "model.nd"
+    model_path.write_text(
+        "10  6.3 3.5 2.786 1000 500\n"
+        "0   8.1 4.7 3.362 1600 800\n"
+    )
+    out = tmp_path / "greens.h5"
+    sac_prefix = tmp_path / "syn"
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "compute",
+            "--model", str(model_path),
+            "--depth", "5",
+            "--distances", "50",
+            "--npts", "128",
+            "--dt", "0.5",
+            "--out", str(out),
+            "--sac-prefix", str(sac_prefix),
+            "--azimuth", "37.5",
+            "--workers", "1",
+        ],
+    )
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    sac_files = sorted(tmp_path.glob("syn.*.sac"))
+    # 1 distance × 10 components.
+    assert len(sac_files) == 10
+
+
+@pytest.mark.fast
 def test_cli_compute_with_pyfk_format(tmp_path: Path) -> None:
     model_path = tmp_path / "model.nd"
     model_path.write_text(
