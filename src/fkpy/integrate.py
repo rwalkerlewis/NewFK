@@ -23,22 +23,10 @@ from __future__ import annotations
 
 import numba as nb
 import numpy as np
-from scipy.special import j0 as _j0
-from scipy.special import j1 as _j1
-from scipy.special import jv as _jv
 
 from ._typing import C128Array, F64Array
+from .bessel import precompute_bessel
 from .propagator import kernel
-
-
-def precompute_bessel(k_array: F64Array, distances_km: F64Array) -> F64Array:
-    """Return ``(n_k, n_dist, 3)`` table of ``J_0, J_1, J_2`` at ``k·x``."""
-    z = np.outer(k_array, distances_km)
-    out = np.empty((k_array.size, distances_km.size, 3), dtype=np.float64)
-    out[..., 0] = _j0(z)
-    out[..., 1] = _j1(z)
-    out[..., 2] = _jv(2.0, z)
-    return out
 
 
 @nb.njit(cache=True)
