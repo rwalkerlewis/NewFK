@@ -16,6 +16,7 @@ import click
 import h5py
 import numpy as np
 
+from . import __version__
 from ._logging import logger
 from .greens import compute_greens
 from .model import LayeredModel
@@ -99,15 +100,29 @@ def compute(  # noqa: PLR0913
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with h5py.File(out_path, "w") as h5:
-        ds = h5.create_dataset("gf", data=result.gf, compression="gzip", compression_opts=4)
+        ds = h5.create_dataset(
+            "gf", data=result.gf, compression="gzip", compression_opts=4
+        )
+        # Record every input parameter for reproducibility.
         ds.attrs["dt"] = result.dt
         ds.attrs["npts"] = result.npts
         ds.attrs["src_depth_km"] = result.src_depth_km
         ds.attrs["rcv_depth_km"] = result.rcv_depth_km
-        ds.attrs["component_order"] = "DD_Z DD_R DS_Z DS_R DS_T SS_Z SS_R SS_T EX_Z EX_R"
+        ds.attrs["sigma"] = sigma
+        ds.attrs["dk"] = dk
+        ds.attrs["kmax"] = kmax
+        ds.attrs["model_path"] = str(model_path)
+        ds.attrs["model_format"] = model_format
+        ds.attrs["fkpy_version"] = __version__
+        ds.attrs["component_order"] = (
+            "DD_Z DD_R DS_Z DS_R DS_T SS_Z SS_R SS_T EX_Z EX_R"
+        )
         h5.create_dataset("distances_km", data=result.distances_km)
         h5.create_dataset("t0_p", data=result.t0_p)
         h5.create_dataset("t0_s", data=result.t0_s)
+        h5.create_dataset("p_takeoff_deg", data=result.p_takeoff_deg)
+        h5.create_dataset("s_takeoff_deg", data=result.s_takeoff_deg)
+        h5.create_dataset("model", data=result.meta["model_array"])
     logger.info("Wrote %s", out_path)
     if sac_prefix:
         files = result.write_sac(prefix=sac_prefix, azimuth_deg=azimuth)
