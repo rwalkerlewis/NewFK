@@ -87,8 +87,11 @@ def compute_greens_jax(  # noqa: PLR0913
         updn=updn,
         backend="numpy",
     )
+    # Plan §1.5: JAX path uses float32 (complex64 internally).  Store
+    # the result as float32 so downstream consumers see the actual
+    # precision.
     return GreensResult(
-        gf=res.gf.astype(np.float32).astype(np.float64),
+        gf=res.gf.astype(np.float32),
         distances_km=res.distances_km,
         dt=res.dt,
         t0_p=res.t0_p,

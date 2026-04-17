@@ -12,7 +12,7 @@ import numpy as np
 
 from ._backend import current_backend
 from ._logging import logger
-from ._typing import F64Array
+from ._typing import F32Array, F64Array
 from .constants import (
     DK_DEFAULT,
     H_SOURCE_RECEIVER_FLOOR_KM,
@@ -59,7 +59,8 @@ class GreensResult:
         Dict carrying every input parameter, for reproducibility.
     """
 
-    gf: F64Array
+    # gf may be float32 when the JAX backend is used; otherwise float64.
+    gf: F64Array | F32Array
     distances_km: F64Array
     dt: float
     t0_p: F64Array
