@@ -69,7 +69,7 @@ class GreensResult:
     meta: dict[str, Any] = field(default_factory=dict)
 
     # ------------------------------------------------------------------
-    def to_obspy_stream(self, *, azimuth_deg: float = 0.0, kstnm: str = "STA"):
+    def to_obspy_stream(self, *, azimuth_deg: float = 0.0, kstnm: str = "STA") -> Any:
         """Convert to an ObsPy ``Stream`` (one Trace per dist × component)."""
         from .sac_io import to_obspy_stream
 
@@ -293,9 +293,12 @@ def compute_greens(  # noqa: PLR0913, PLR0915
     if t0_s is None:
         t0_first_arrival = t0_p_raw
     elif np.isscalar(t0_s):
-        t0_first_arrival = np.full(distances_km.shape, float(t0_s))  # type: ignore[arg-type]
+        t0_first_arrival = np.full(
+            distances_km.shape, float(t0_s),  # type: ignore[arg-type]
+            dtype=np.float64,
+        )
     else:
-        t0_first_arrival = np.asarray(t0_s, dtype=np.float64)  # type: ignore[arg-type]
+        t0_first_arrival = np.asarray(t0_s, dtype=np.float64)
     # Per Lupei Zhu's `fk.f`: t0_offset = t0 - tb*dt, the absolute time
     # represented by sample 0 of the output trace.  This is also the SAC
     # `b` header.

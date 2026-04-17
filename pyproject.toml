@@ -78,6 +78,12 @@ python_version = "3.11"
 warn_unused_ignores = true
 disallow_any_unimported = false
 plugins = []
+# Numba's @njit-decorated functions are not visible to mypy (the
+# `numba` package ships no stubs).  We disable the corresponding
+# "untyped decorator makes function untyped" warning project-wide
+# rather than scattering # type: ignore[untyped-decorator] comments
+# across every JIT helper.
+disable_error_code = ["untyped-decorator"]
 
 [[tool.mypy.overrides]]
 module = ["numba.*", "obspy.*", "scipy.*", "h5py.*", "jax.*", "jaxlib.*"]

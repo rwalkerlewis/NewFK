@@ -260,7 +260,8 @@ def _basis_weights_3comp(
     iso = (mxx + myy + mzz) / 3.0
     dd_part = (2.0 * mzz - mxx - myy) / 6.0
     ss_part_xx = -0.5 * (mxx - myy) * ca2 - mxy * sa2
-    ss_part_yy = -0.5 * (mxx - myy) * (-ca2) + mxy * (-sa2)  # cos(2(az+π/2)) trick — but we use direct n=2
+    # cos(2(az+pi/2)) trick; we instead use the direct n=2 expression below.
+    ss_part_yy = -0.5 * (mxx - myy) * (-ca2) + mxy * (-sa2)
     ds_part_z = -mxz * ca - myz * sa
     ds_part_t_z = -mxz * sa + myz * ca  # transverse n=1
     ss_part_t = -0.5 * (mxx - myy) * sa2 + mxy * ca2  # transverse n=2

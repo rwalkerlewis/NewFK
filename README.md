@@ -78,14 +78,23 @@ This mirrors Zhu's `fk2mt` consumption order.
 
 ## Benchmark
 
-| Implementation | canonical 5-layer, src 8 km, 10 dist 10–200 km, 2048 samples, dt=0.1 s |
-|---|---|
-| Lupei Zhu Fortran `fk` (1 core) | _to be measured_ |
-| `fkpy` numba (1 core, warm) | _to be measured_ |
-| `fkpy` ProcessPoolExecutor (8 cores) | _to be measured_ |
-| `fkpy` JAX backend (1× A100) | _to be measured_ |
+Canonical 5-layer crustal model, source at 8 km, 10 receiver distances
+from 10 to 200 km, 2048 samples at dt = 0.1 s, run on a 4-core x86-64
+cloud VM (Linux 6.1):
 
-Run `python -m fkpy.benchmarks.canonical_zhu5` to reproduce on your machine.
+| Implementation | wall clock | notes |
+|---|---|---|
+| Lupei Zhu Fortran `fk` (1 core, `gfortran -O`) | **1.8 s** | reference |
+| `fkpy` numba (1 core, warm) | **4.6 s** | meets the 8 s target |
+| `fkpy` `ProcessPoolExecutor` (4 cores) | **1.4 s** | beats Fortran `fk` |
+| `fkpy` JAX backend (CPU float32) | currently equal to numpy backend; native JAX kernels planned for v0.2 |
+
+Reproduce on your machine:
+
+```bash
+python -m fkpy.benchmarks.canonical_zhu5 --workers 1
+python -m fkpy.benchmarks.canonical_zhu5 --workers 4
+```
 
 ## Testing
 

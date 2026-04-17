@@ -34,7 +34,10 @@ def futterman_attenuation_factor(omega_rad_s: complex | C128Array) -> complex | 
     Independent of layer; the per-layer division by ``Q`` happens in
     :func:`complex_wavenumber_squared`.
     """
-    return np.log(omega_rad_s / (TWO_PI * Q_REF_HZ)) / np.pi + 0.5j
+    val = np.log(omega_rad_s / (TWO_PI * Q_REF_HZ)) / np.pi + 0.5j
+    if isinstance(omega_rad_s, complex):
+        return complex(val)
+    return val.astype(np.complex128)
 
 
 def complex_wavenumber_squared(
@@ -61,7 +64,8 @@ def complex_wavenumber_squared(
     att = futterman_attenuation_factor(omega_rad_s)
     v_complex = velocity_kms * (1.0 + att / q)
     k = omega_rad_s / v_complex
-    return np.asarray(k * k, dtype=np.complex128)
+    out: C128Array = (k * k).astype(np.complex128)
+    return out
 
 
 __all__ = ["complex_wavenumber_squared", "futterman_attenuation_factor"]

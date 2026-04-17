@@ -25,7 +25,10 @@ from .model import LayeredModel
 @click.option("-v", "--verbose", count=True, help="Increase log verbosity.")
 def main(verbose: int) -> None:
     level = logging.WARNING - 10 * verbose
-    logging.basicConfig(level=max(level, logging.DEBUG), format="%(name)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=max(level, logging.DEBUG),
+        format="%(name)s %(levelname)s %(message)s",
+    )
 
 
 @main.command("compute", help="Compute Green's functions and save to HDF5 (and optionally SAC).")
@@ -37,7 +40,8 @@ def main(verbose: int) -> None:
               help="Comma-separated list of receiver distances in km.")
 @click.option("--npts", required=True, type=int, help="Number of time samples.")
 @click.option("--dt", required=True, type=float, help="Sampling interval in seconds.")
-@click.option("--sigma", default=2.0, type=float, help="Imaginary frequency shift (cycles per trace).")
+@click.option("--sigma", default=2.0, type=float,
+              help="Imaginary frequency shift (cycles per trace).")
 @click.option("--dk", default=0.3, type=float, help="Wavenumber sampling, in pi/x_max units.")
 @click.option("--kmax", default=15.0, type=float, help="kmax in 1/h_s units.")
 @click.option("--workers", "n_workers", default=None, type=int,
@@ -48,7 +52,8 @@ def main(verbose: int) -> None:
               help="HDF5 output file.")
 @click.option("--sac-prefix", "sac_prefix", default=None, type=str,
               help="Optional SAC output filename prefix.")
-@click.option("--azimuth", default=0.0, type=float, help="Receiver azimuth in degrees (for SAC headers).")
+@click.option("--azimuth", default=0.0, type=float,
+              help="Receiver azimuth in degrees (for SAC headers).")
 def compute(  # noqa: PLR0913
     model_path: Path,
     src_depth_km: float,

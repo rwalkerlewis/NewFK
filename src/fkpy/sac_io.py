@@ -7,7 +7,6 @@ az, baz, evdp, stel, b, e, o, delta, t1, t2``).
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .source import N_GREEN_COMPONENTS, ZhuBasis
