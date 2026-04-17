@@ -50,18 +50,22 @@ __all__ = [
 ]
 
 
-def compute_greens_for_depths(*args, **kwargs):  # type: ignore[no-untyped-def]
-    """Lazy proxy to :func:`fkpy.jax_backend.greens_jx.compute_greens_for_depths`.
+def __getattr__(name: str) -> object:
+    """Lazy attribute access for optional JAX-only entry points.
 
-    JAX is an *optional* dependency.  Import is deferred so that
-    ``import fkpy`` succeeds even when JAX is not installed; the
-    helpful ImportError is raised only when the user actually calls
-    this function.
+    Lets ``fkpy.compute_greens_for_depths`` work without forcing JAX
+    to be installed at package-import time; the helpful ImportError
+    is raised only when the user actually calls a JAX-dependent
+    function.  Preserves the original function's ``__signature__``
+    and docstring so ``help(fkpy.compute_greens_for_depths)`` gives
+    full details.
     """
-    from .jax_backend.greens_jx import (
-        compute_greens_for_depths as _compute_greens_for_depths,
-    )
+    if name == "compute_greens_for_depths":
+        from .jax_backend.greens_jx import (
+            compute_greens_for_depths as _compute_greens_for_depths,
+        )
 
-    return _compute_greens_for_depths(*args, **kwargs)
+        return _compute_greens_for_depths
+    raise AttributeError(f"module 'fkpy' has no attribute {name!r}")
 
 __version__ = "0.1.1"
