@@ -9,7 +9,7 @@ from fkpy.attenuation import (
     complex_wavenumber_squared,
     futterman_attenuation_factor,
 )
-from fkpy.constants import Q_REF_HZ, TWO_PI
+from fkpy.constants import Q_REF_HZ, TWO_PI  # noqa: F401  used in causality test
 
 
 @pytest.mark.fast
@@ -38,3 +38,46 @@ class TestFutterman:
         ksq_high = complex_wavenumber_squared(omega, v, np.array([10000.0]))
         ksq_low = complex_wavenumber_squared(omega, v, np.array([100.0]))
         assert abs(ksq_low.imag).item() > abs(ksq_high.imag).item()
+
+    def test_causality_kramers_kronig(self) -> None:
+        """Futterman with Q_ref = 1 Hz is a *causal* attenuation
+        operator: the impulse response in the time domain must be
+        zero for ``t < 0`` (within numerical noise).
+
+        We construct ``H(ω) = exp(i (ω/v_complex) x)`` for a fixed
+        propagation distance, inverse-FFT it, and require that the
+        signal energy be concentrated *after* ``t = x/v`` — i.e. the
+        causal arrival — with negligible energy at strictly negative
+        times (samples 0..N/4 in our IFFT, since the impulse arrives
+        at sample N/2).
+        """
+        npts = 8192
+        dt = 0.005
+        f = np.fft.rfftfreq(npts, dt)
+        omega = 2.0 * np.pi * f
+        Q = 200.0
+        v = 5.0
+        # Pick x so the impulse lands near sample N/2 = 4096 (t = 20.48 s):
+        x = v * 20.0  # ≈ 100 km; arrival at 20 s
+        att = np.zeros_like(omega, dtype=np.complex128)
+        att[1:] = np.log(omega[1:] / TWO_PI / Q_REF_HZ) / np.pi + 0.5j
+        v_complex = v * (1.0 + att / Q)
+        # apply a low-pass cosine taper to avoid the Nyquist ringing
+        f_lp = 0.5 * f.max()
+        taper = np.where(f < f_lp, 1.0, 0.5 * (1.0 + np.cos(np.pi * (f - f_lp) / f_lp)))
+        taper = np.clip(taper, 0, 1)
+        # Propagator
+        k_complex = omega / v_complex
+        spectrum = taper * np.exp(1j * k_complex * x)
+        spectrum[0] = 0.0
+        h = np.fft.irfft(spectrum, n=npts)
+        # The arrival should be near sample npts*dt/x*v = ... actually
+        # the IFFT places t = i*dt for i = 0..npts-1, so the arrival is
+        # near sample x/v / dt = 4000.  Energy before sample 3500 should
+        # be << energy from 3500..6000.
+        early = float(np.sum(h[:3500] ** 2))
+        late = float(np.sum(h[3500:6000] ** 2))
+        assert late > 100.0 * early, (
+            f"Futterman not causal: early energy {early:.3e}, "
+            f"late energy {late:.3e}, ratio {late / max(early, 1e-30):.1f}"
+        )
