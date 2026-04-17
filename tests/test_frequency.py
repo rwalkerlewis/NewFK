@@ -11,7 +11,14 @@ from fkpy.frequency import FrequencyJobConfig, run_omega_loop
 from fkpy.source import SourceType, source_jump
 
 
-def _build_cfg(model_arr, distances, npts, dt, src_layer, rcv_layer):
+def _build_cfg(
+    model_arr: np.ndarray,
+    distances: np.ndarray,
+    npts: int,
+    dt: float,
+    src_layer: int,
+    rcv_layer: int,
+) -> FrequencyJobConfig:
     vp = model_arr[:, 1]
     vs = model_arr[:, 2]
     rho = model_arr[:, 3]
