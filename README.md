@@ -61,18 +61,22 @@ with attribute metadata recording every input parameter.
 
 The 10 Green's-function components per distance are, in order:
 
-| Index | Component | Description |
-|------:|:---------:|-------------|
-| 0 | DD_z | 45° dip-slip, vertical |
-| 1 | DD_r | 45° dip-slip, radial |
-| 2 | DS_z | vertical dip-slip, vertical |
-| 3 | DS_r | vertical dip-slip, radial |
-| 4 | DS_t | vertical dip-slip, transverse |
-| 5 | SS_z | vertical strike-slip, vertical |
-| 6 | SS_r | vertical strike-slip, radial |
-| 7 | SS_t | vertical strike-slip, transverse |
-| 8 | EX_z | explosion, vertical |
-| 9 | EX_r | explosion, radial |
+| Index | `ZhuBasis` | SAC suffix | Description |
+|------:|:----------:|:----------:|-------------|
+| 0 | `DD_Z` | `.0` | 45° dip-slip, vertical |
+| 1 | `DD_R` | `.1` | 45° dip-slip, radial |
+| 2 | `DS_Z` | `.3` | vertical dip-slip, vertical |
+| 3 | `DS_R` | `.4` | vertical dip-slip, radial |
+| 4 | `DS_T` | `.5` | vertical dip-slip, transverse |
+| 5 | `SS_Z` | `.6` | vertical strike-slip, vertical |
+| 6 | `SS_R` | `.7` | vertical strike-slip, radial |
+| 7 | `SS_T` | `.8` | vertical strike-slip, transverse |
+| 8 | `EX_Z` | `.a` | explosion, vertical |
+| 9 | `EX_R` | `.b` | explosion, radial |
+
+(The trivially-zero `n=0` SH component, which Lupei Zhu's `fk` writes
+to suffix `.2` as an all-zero trace, is dropped from fkpy's
+10-component output.)
 
 This mirrors Zhu's `fk2mt` consumption order.
 

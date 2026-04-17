@@ -197,6 +197,10 @@ class MomentTensor:
         )
 
     # ------------------------------------------------------------------
+    def to_basis_weights(self, az_deg: float) -> F64Array:
+        """Alias for :meth:`basis_weights` (plan §2.4 naming)."""
+        return self.basis_weights(az_deg)
+
     def basis_weights(self, az_deg: float) -> F64Array:
         """Return the (10,) weights ``w`` such that the synthetic
         3-component displacement at azimuth ``az_deg`` is

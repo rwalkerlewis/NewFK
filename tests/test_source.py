@@ -69,3 +69,10 @@ class TestMomentTensor:
         mt = MomentTensor(Mxx=1.0, Mxy=0.5, Mxz=-0.2, Myy=0.3, Myz=0.7, Mzz=-1.1)
         W = mt.basis_weights(az_deg=10.0)
         assert W.shape == (3, N_GREEN_COMPONENTS)
+
+    def test_to_basis_weights_alias(self) -> None:
+        mt = MomentTensor(Mxx=1.0, Mxy=0.5, Mxz=-0.2, Myy=0.3, Myz=0.7, Mzz=-1.1)
+        np.testing.assert_array_equal(
+            mt.basis_weights(az_deg=15.0),
+            mt.to_basis_weights(az_deg=15.0),
+        )
