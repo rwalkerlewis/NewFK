@@ -59,6 +59,8 @@ def main(verbose: int) -> None:
               help="Optional SAC output filename prefix.")
 @click.option("--azimuth", default=0.0, type=float,
               help="Receiver azimuth in degrees (for SAC headers).")
+@click.option("--kstnm", default="STA", type=str,
+              help="SAC kstnm (station name) header, used by --sac-prefix.")
 def compute(  # noqa: PLR0913
     model_path: Path,
     model_format: str,
@@ -75,6 +77,7 @@ def compute(  # noqa: PLR0913
     out_path: Path,
     sac_prefix: str | None,
     azimuth: float,
+    kstnm: str,
 ) -> None:
     distances_km = np.array([float(x) for x in distances.split(",") if x.strip()], dtype=np.float64)
     model = LayeredModel.from_text(model_path, format=model_format)
@@ -125,7 +128,11 @@ def compute(  # noqa: PLR0913
         h5.create_dataset("model", data=result.meta["model_array"])
     logger.info("Wrote %s", out_path)
     if sac_prefix:
-        files = result.write_sac(prefix=sac_prefix, azimuth_deg=azimuth)
+        from .sac_io import write_sac as _write_sac
+
+        files = _write_sac(
+            result, prefix=sac_prefix, azimuth_deg=azimuth, kstnm=kstnm
+        )
         logger.info("Wrote %d SAC files", len(files))
 
 

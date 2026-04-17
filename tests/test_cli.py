@@ -69,7 +69,8 @@ def test_cli_bench_runs(caplog) -> None:
 
 @pytest.mark.fast
 def test_cli_compute_with_sac_prefix(tmp_path: Path) -> None:
-    """`--sac-prefix foo` writes one SAC file per (distance, component)."""
+    """`--sac-prefix foo` writes one SAC file per (distance, component)
+    and `--kstnm` propagates into the SAC kstnm header."""
     model_path = tmp_path / "model.nd"
     model_path.write_text(
         "10  6.3 3.5 2.786 1000 500\n"
@@ -90,6 +91,7 @@ def test_cli_compute_with_sac_prefix(tmp_path: Path) -> None:
             "--out", str(out),
             "--sac-prefix", str(sac_prefix),
             "--azimuth", "37.5",
+            "--kstnm", "ABC",
             "--workers", "1",
         ],
     )
@@ -97,6 +99,12 @@ def test_cli_compute_with_sac_prefix(tmp_path: Path) -> None:
     sac_files = sorted(tmp_path.glob("syn.*.sac"))
     # 1 distance × 10 components.
     assert len(sac_files) == 10
+    # Check the kstnm propagated.
+    from obspy import read
+
+    tr = read(str(sac_files[0]))[0]
+    assert tr.stats.sac.kstnm == "ABC"
+    assert tr.stats.sac.az == pytest.approx(37.5)
 
 
 @pytest.mark.fast
