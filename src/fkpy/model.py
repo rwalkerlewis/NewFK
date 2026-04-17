@@ -89,14 +89,14 @@ class LayeredModel:
         return model
 
     @classmethod
-    def from_text(cls, path: str | Path, format: str = "fkpy") -> Self:
+    def from_text(cls, path: str | Path, model_format: str = "fkpy") -> Self:
         """Load from a whitespace-separated text file (``#`` comments).
 
         Parameters
         ----------
         path
             Path to the model file.
-        format
+        model_format
             ``"fkpy"`` (default) — columns are
             ``[thickness_km, vp_kms, vs_kms, rho_gcc, Qp, Qs]``.
             ``"pyfk"`` — columns are
@@ -106,11 +106,13 @@ class LayeredModel:
         arr = np.loadtxt(Path(path), comments="#", dtype=np.float64)
         if arr.ndim == 1:
             arr = arr.reshape(1, -1)
-        if format == "pyfk":
+        if model_format == "pyfk":
             # swap (vp, vs) and (Qp, Qs) columns
             arr = arr[:, [0, 2, 1, 3, 5, 4]]
-        elif format != "fkpy":
-            raise ValueError(f"Unknown model format {format!r}; expected 'fkpy' or 'pyfk'.")
+        elif model_format != "fkpy":
+            raise ValueError(
+                f"Unknown model format {model_format!r}; expected 'fkpy' or 'pyfk'."
+            )
         return cls.from_array(arr)
 
     # ------------------------------------------------------------------

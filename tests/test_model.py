@@ -97,7 +97,7 @@ class TestLayeredModel:
             "10  3.5 6.3 2.786 500 1000\n"
             "0   4.7 8.1 3.362 800 1600\n"
         )
-        m = LayeredModel.from_text(p, format="pyfk")
+        m = LayeredModel.from_text(p, model_format="pyfk")
         # Expected fkpy: thickness vp vs rho Qp Qs
         np.testing.assert_allclose(m.vp_kms, [6.3, 8.1])
         np.testing.assert_allclose(m.vs_kms, [3.5, 4.7])
@@ -108,4 +108,4 @@ class TestLayeredModel:
         p = tmp_path / "x.nd"
         p.write_text("0 5 3 2.7 500 1000\n")
         with pytest.raises(ValueError):
-            LayeredModel.from_text(p, format="bogus")
+            LayeredModel.from_text(p, model_format="bogus")

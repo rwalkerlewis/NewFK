@@ -80,7 +80,7 @@ def compute(  # noqa: PLR0913
     kstnm: str,
 ) -> None:
     distances_km = np.array([float(x) for x in distances.split(",") if x.strip()], dtype=np.float64)
-    model = LayeredModel.from_text(model_path, format=model_format)
+    model = LayeredModel.from_text(model_path, model_format=model_format)
     logger.info(
         "Computing GFs for %d distances, npts=%d, dt=%g, src_depth=%g km",
         distances_km.size,
