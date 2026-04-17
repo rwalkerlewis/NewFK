@@ -254,6 +254,8 @@ def compute_greens(  # noqa: PLR0913, PLR0915
             taper=taper,
             samples_before_p=samples_before_p,
             updn=updn,
+            t0_s=t0_s,
+            hipass=hipass,
         )
 
     distances_km = np.asarray(distances_km, dtype=np.float64).ravel()

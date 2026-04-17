@@ -61,11 +61,13 @@ def compute_greens_jax(  # noqa: PLR0913
     taper: float,
     samples_before_p: int,
     updn: int,
+    t0_s: F64Array | float | None = None,
+    hipass: tuple[int, int] | None = None,
 ) -> GreensResult:
     """Single-depth wrapper.
 
     Defers to :func:`fkpy.greens.compute_greens` (numpy backend) and
-    re-casts to float32 then back to float64 to match GPU precision.
+    re-casts the output to float32 (plan §1.5).
     """
     _ensure_jax()
     from ..greens import GreensResult, compute_greens
@@ -85,6 +87,8 @@ def compute_greens_jax(  # noqa: PLR0913
         taper=taper,
         samples_before_p=samples_before_p,
         updn=updn,
+        t0_s=t0_s,
+        hipass=hipass,
         backend="numpy",
     )
     # Plan §1.5: JAX path uses float32 (complex64 internally).  Store
