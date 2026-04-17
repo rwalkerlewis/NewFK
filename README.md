@@ -1,5 +1,9 @@
 # fkpy
 
+[![CI](https://github.com/rwalkerlewis/NewFK/actions/workflows/ci.yml/badge.svg)](https://github.com/rwalkerlewis/NewFK/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 Frequency-wavenumber synthetic seismograms for a layered elastic half-space.
 
 `fkpy` is a Python port of Lupei Zhu's `fk` Fortran package
